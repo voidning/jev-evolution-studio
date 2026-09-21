@@ -313,6 +313,7 @@ func EvolveConcepts(result DesignResult) DesignResult {
 		if weakness == "conversion" {
 			s.Navigation, s.CTA = "action", "trial"
 		}
+		s.Blueprint = evolveBlueprint(s.Blueprint, weakness, result.Generation, *s)
 		result.MutationLog = append(result.MutationLog, s.Name+": "+s.Mutation)
 	}
 	return result

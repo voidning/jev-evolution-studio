@@ -4,12 +4,13 @@ import { Evolve, Generate, GetState, OpenStage, SelectConcept } from "../wailsjs
 
 type Decision = { label: string; value: string; confidence: number; group: string; distribution?: Record<string, number> };
 type Scorecard = { originality: number; clarity: number; trust: number; conversion: number; composite: number };
-type PageSpec = { id: string; name: string; descriptor: string; strategy: string; generation: number; mutation: string; theme: string; hero: string; visual: string; features: string; density: string; navigation: string; motion: string; story: string; cta: string; world: string; brand: string; eyebrow: string; showLogos: boolean; showPricing: boolean; showStats: boolean; title: string; description: string; decisions: Decision[]; scores: Scorecard };
-type DesignResult = { mode: string; latencyMs: number; prompt: string; generation: number; winner: number; swarmSize: number; mutationLog: string[]; specs: PageSpec[] };
+type Blueprint = { version: number; id: string; creativeDirection: string; sections: unknown[] };
+type PageSpec = { id: string; name: string; descriptor: string; strategy: string; generation: number; mutation: string; theme: string; hero: string; visual: string; features: string; density: string; navigation: string; motion: string; story: string; cta: string; world: string; brand: string; eyebrow: string; showLogos: boolean; showPricing: boolean; showStats: boolean; title: string; description: string; decisions: Decision[]; scores: Scorecard; blueprint: Blueprint };
+type DesignResult = { mode: string; latencyMs: number; prompt: string; generation: number; winner: number; swarmSize: number; mutationLog: string[]; specs: PageSpec[]; generator: string; astSource: string };
 
 const DEFAULT_PROMPT = "为一款实时 AI 数据分析产品做主页。面向开发者，深色、克制、有速度感，重点突出实时分析。";
 const QUICK = ["做得像来自未来，但必须可信", "锁住技术感，增加人类情绪", "极端原创，并强化申请内测"];
-const PHASES = ["Parsing intent", "19 judgments", "3 universes", "Critic scoring", "Gen 02 mutation"];
+const PHASES = ["Parallel intent", "LLM page AST", "3 universes", "Critic scoring", "Gen 02 mutation"];
 
 function App() {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -18,6 +19,7 @@ function App() {
   const [generating, setGenerating] = useState(false);
   const [stageURL, setStageURL] = useState("");
   const [hasKey, setHasKey] = useState(false);
+  const [hasGeneratorKey, setHasGeneratorKey] = useState(false);
   const [autoApply, setAutoApply] = useState(false);
   const [stageOpened, setStageOpened] = useState(false);
   const [phase, setPhase] = useState(0);
@@ -28,6 +30,7 @@ function App() {
       setResult(state.result as DesignResult);
       setStageURL(state.previewURL);
       setHasKey(state.hasAPIKey);
+      setHasGeneratorKey(state.hasGeneratorKey);
       return OpenStage();
     }).then(() => setStageOpened(true)).catch(console.error);
   }, []);
@@ -70,7 +73,7 @@ function App() {
     <main className="director">
       <header className="titlebar">
         <div className="brand"><span><Sparkles size={14} /></span><strong>Forge</strong><small>LIVE UI DIRECTOR</small></div>
-        <div className="engine"><i className={result?.mode === "jev" ? "jev" : ""} />{result?.mode === "jev" ? "JEV 1.13" : hasKey ? "JEV READY" : "LOCAL MODE"}</div>
+        <div className="engine"><i className={result?.mode?.includes("jev") ? "jev" : ""} />{result?.mode?.includes("llm") ? `JEV + ${result.generator}` : hasGeneratorKey ? "GENERATOR READY" : hasKey ? "JEV + LOCAL AST" : "LOCAL AST"}</div>
       </header>
 
       <section className="stage-strip">
@@ -125,7 +128,7 @@ function App() {
       <footer className="statusbar">
         <span><CircleDot size={10} /> {generating ? PHASES[phase] : "Genome synced"}</span>
         <span><Gauge size={10} /> {result?.latencyMs ?? 0} ms</span>
-        <span><Layers3 size={10} /> SSE live</span>
+        <span><Layers3 size={10} /> {result?.specs?.[0]?.blueprint?.sections?.length ?? 0} AST nodes</span>
       </footer>
     </main>
   );

@@ -29,14 +29,17 @@
 世界 / 目标 / 语气 / 主题 / Hero / 视觉 / 密度 / 导航 / 动效 / CTA ...
       │
       ▼
-类型化 PageSpec
+类型化意图 + 三份创作宪法
       │
       ├──────────────┬──────────────┐
       ▼              ▼              ▼
  Signal           Pulse           Atlas
- split            centered        terminal
- dashboard        abstract        terminal
- bento            timeline        columns
+ 清晰可用          沉浸叙事          系统可信
+      └────── 快速生成 LLM ─────────┘
+                     │
+                     ▼
+        三棵递归 Page AST（5–8 个 Section）
+        布局 / 视觉 / 内容 / 子节点自由组合
       │              │              │
       └──────────────┴──────────────┘
                      │
@@ -53,17 +56,17 @@
              Evolve Again → 下一代
 ```
 
-第一轮 Jev 不是一个大问题，而是 19 个可以并行回答的小问题。第二轮 Critic 同样一次请求并行回答 12 个评分问题（3 个方案 × 4 个维度）。权重计算、候选排序、变异策略和代际状态全部由 Go 代码掌握，因此过程可解释、可测试，也不会因为模型自由发挥而破坏协议。
+第一轮 Jev 不是一个大问题，而是 19 个可以并行回答的小问题。与此同时，一个低成本生成 LLM 为三份创作宪法生成紧凑的递归 Page AST，而不是 HTML 或 Tailwind 字符串。第二轮 Critic 一次请求并行回答 12 个评分问题（3 个方案 × 4 个维度）。权重计算、Schema 校验、候选排序、树变异和代际状态全部由 Go 代码掌握，因此过程可解释、可测试，也不会因为模型自由发挥而破坏协议。
 
 ## 三个设计宇宙
 
-三套候选不是换皮，而是有意固定不同的结构基因：
+三套候选不再对应三个固定模板，而是三份不同的“创作宪法”。每次生成的 Section 数量、顺序、布局、视觉装置和嵌套结构都可以变化：
 
 | 宇宙 | Hero | 核心视觉 | 内容结构 | 设计倾向 |
 | --- | --- | --- | --- | --- |
-| Signal | 左右分栏 | 数据仪表盘 | Bento 网格 | 清晰、可读、产品化 |
-| Pulse | 居中叙事 | 抽象信号场 | 时间线 | 戏剧性、情绪和原创性 |
-| Atlas | 终端式开场 | 实时终端 | 多列证据 | 技术可信度和系统感 |
+| Signal | 信息清晰 | 可用但不常规的产品构图 | 清晰、可读、产品化 |
+| Pulse | 沉浸情绪 | 电影式互动旅程 | 戏剧性、情绪和原创性 |
+| Atlas | 系统证据 | 将运行状态变成视觉世界 | 技术可信度和系统感 |
 
 递归进化只修改表现较弱的基因，不会把三个宇宙重新压成同一种模板。每代都保存结构、评分、变异原因和最终胜者。
 
@@ -113,8 +116,10 @@ Wails 窗口适合成为紧凑的导演台：输入方向、观看 19 个节点�
 
 - **Go + Wails v2**：桌面生命周期、Jev 调用、编排、预览服务器与 SSE。
 - **React + TypeScript + Vite**：桌面导演台。
-- **TypeSafe System One / Jev 1.13**：自然语言到类型化判断和概率。
-- **原生 HTML/CSS/JS 舞台**：浏览器里的实时页面，避免给展示端增加框架负担。
+- **TypeSafe System One / Jev 1.13**：自然语言到类型化判断、概率和 Critic 评分。
+- **OpenAI Responses API**：用严格 JSON Schema 生成三棵紧凑 Page AST；默认 `gpt-5.6-luna`，可配置其他支持 Structured Outputs 的模型。
+- **递归页面语法**：安全的 Section、Layout、Visual、Item 和 Children 节点；模型不直接输出代码。
+- **原生 HTML/CSS/JS 舞台**：递归解释 AST 并实时渲染，避免把任意模型代码带进浏览器。
 
 关键文件：
 
@@ -122,8 +127,10 @@ Wails 窗口适合成为紧凑的导演台：输入方向、观看 19 个节点�
 | --- | --- |
 | `app.go` | Wails API、生成流程、SSE 阶段事件、连续进化 |
 | `jev.go` | 19 路判断、Critic、语义世界、候选构建与突变 |
+| `generator.go` | 生成模型调用、严格 Schema、AST 清洗、本地语法与树突变 |
 | `types.go` | Decision、PageSpec、Scorecard、DesignResult 等协议 |
 | `preview_page.go` | 浏览器舞台和三种页面结构 |
+| `ast_preview.go` | 递归 Page AST 的浏览器解释器与视觉原子 |
 | `frontend/src/App.tsx` | 桌面导演台交互 |
 | `frontend/src/evolution.css` | 竞技场与节点动画视觉系统 |
 | `app_test.go` | 回归、SSE、安全与真实 Jev 测试 |
@@ -150,6 +157,16 @@ export TYPESAFE_API_KEY="your_key_here"
 ```dotenv
 TYPESAFE_API_KEY=your_key_here
 ```
+
+如果要启用真正的 LLM 页面生成，再加入 OpenAI API Key：
+
+```dotenv
+OPENAI_API_KEY=your_key_here
+# 可选：默认是 gpt-5.6-luna
+GENERATOR_MODEL=gpt-5.6-luna
+```
+
+也可以使用 `GENERATOR_API_KEY` 和 `GENERATOR_BASE_URL` 接入兼容 OpenAI Responses API 的服务。没有生成模型 Key 时，应用会使用同一套 AST 协议和本地页面语法降级，仍然不会退回旧的三模板渲染。
 
 运行：
 
@@ -179,7 +196,9 @@ build/bin/ForgeDesktop.app
 ## 已验证的行为
 
 - 19 个判断节点与真实 Jev 请求一致；
-- 三个宇宙在初代和递归进化后都保持不同结构；
+- 三个宇宙由不同 AST Section 序列构成，并包含嵌套组合；
+- 生成模型使用严格 JSON Schema，非法节点会被清洗或回退；
+- Jev 和生成 LLM 并行运行，避免串行叠加延迟；
 - Critic 四维评分、弱项替换、胜者接管有效；
 - Enter 编译，Shift+Enter 换行；
 - 中文提示能够切换完整语义世界；
@@ -191,7 +210,7 @@ build/bin/ForgeDesktop.app
 
 当前版本证明的是“判断原语 + 程序编排”能够制造比单次生成更有生命力的界面。下一阶段可以沿几条线继续：
 
-1. **从候选类池升级为设计语法**：把 Tailwind 类、组件、布局约束和品牌 token 组成可变异的基因组。
+1. **扩大设计语法**：继续增加 Canvas、WebGL、图表和滚动叙事原子，让组合空间从数十个节点扩展到数百个。
 2. **真实 DOM 级编辑**：用户说“第二屏更克制”，只重新判断目标节点及其依赖，而不是重做整页。
 3. **多角色 Jev 群体**：产品经理、艺术指导、转化专家、无障碍审查员分别投票，再由仲裁器合成。
 4. **分支与谱系**：保存每一代 PageSpec，允许从任意祖先进化、对比或合并两个分支。
@@ -204,7 +223,7 @@ build/bin/ForgeDesktop.app
 ## 当前边界
 
 - 语义世界目前是有限集合，未知领域会回退到最接近的世界；
-- 页面结构是精心约束的设计空间，还不是任意组件组合；
+- 页面已经由递归 AST 生成，但当前视觉原子数量仍有限；
 - 进化是有界突变，不是无限递归，避免成本和视觉漂移；
 - 当前是概念验证，尚未加入项目持久化、历史树、导出代码和多人协作。
 

@@ -28,6 +28,36 @@ type MetricContent struct {
 	Label string `json:"label"`
 }
 
+// BlueprintItem is a small semantic unit inside a generated section. The
+// renderer decides how to present it from the section's layout and visual gene.
+type BlueprintItem struct {
+	Label string `json:"label"`
+	Title string `json:"title"`
+	Body  string `json:"body"`
+	Value string `json:"value"`
+}
+
+// SectionNode is the recursive page grammar. It deliberately describes intent
+// instead of HTML or Tailwind classes, keeping generated output safe and valid.
+type SectionNode struct {
+	ID       string          `json:"id"`
+	Kind     string          `json:"kind"`
+	Layout   string          `json:"layout"`
+	Visual   string          `json:"visual"`
+	Eyebrow  string          `json:"eyebrow"`
+	Headline string          `json:"headline"`
+	Body     string          `json:"body"`
+	Items    []BlueprintItem `json:"items"`
+	Children []SectionNode   `json:"children"`
+}
+
+type PageBlueprint struct {
+	Version           int           `json:"version"`
+	ID                string        `json:"id"`
+	CreativeDirection string        `json:"creativeDirection"`
+	Sections          []SectionNode `json:"sections"`
+}
+
 type PageSpec struct {
 	ID              string           `json:"id"`
 	Name            string           `json:"name"`
@@ -58,6 +88,7 @@ type PageSpec struct {
 	Description     string           `json:"description"`
 	Decisions       []Decision       `json:"decisions"`
 	Scores          Scorecard        `json:"scores"`
+	Blueprint       PageBlueprint    `json:"blueprint"`
 }
 
 type DesignResult struct {
@@ -69,12 +100,15 @@ type DesignResult struct {
 	SwarmSize   int        `json:"swarmSize"`
 	MutationLog []string   `json:"mutationLog"`
 	Specs       []PageSpec `json:"specs"`
+	Generator   string     `json:"generator"`
+	ASTSource   string     `json:"astSource"`
 }
 
 type AppState struct {
-	PreviewURL string       `json:"previewURL"`
-	Result     DesignResult `json:"result"`
-	HasAPIKey  bool         `json:"hasAPIKey"`
+	PreviewURL      string       `json:"previewURL"`
+	Result          DesignResult `json:"result"`
+	HasAPIKey       bool         `json:"hasAPIKey"`
+	HasGeneratorKey bool         `json:"hasGeneratorKey"`
 }
 
 type Answer struct {

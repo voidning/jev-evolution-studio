@@ -34,6 +34,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.token = randomToken()
 	initial := CompileConcepts(LocalAnswers(defaultPrompt), "local", 0)
+	initial = applyBlueprints(initial, fallbackBlueprints(initial.Specs), "local-grammar", "local-grammar")
 	a.current = ApplyCritic(initial, LocalCritic(initial.Specs))
 	if err := a.startPreviewServer(); err != nil {
 		runtime.LogErrorf(ctx, "preview server: %v", err)
@@ -51,7 +52,7 @@ func (a *App) shutdown(ctx context.Context) {
 func (a *App) GetState() AppState {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return AppState{PreviewURL: a.previewURL, Result: a.current, HasAPIKey: loadAPIKey() != ""}
+	return AppState{PreviewURL: a.previewURL, Result: a.current, HasAPIKey: loadAPIKey() != "", HasGeneratorKey: loadGeneratorKey() != ""}
 }
 
 func (a *App) OpenStage() string {
@@ -70,15 +71,47 @@ func (a *App) Generate(prompt string) DesignResult {
 		prompt = defaultPrompt
 	}
 	started := time.Now()
-	answers, err := AskJev(prompt, a.current.Specs)
+	a.mu.RLock()
+	currentSpecs := append([]PageSpec(nil), a.current.Specs...)
+	a.mu.RUnlock()
+	type jevResult struct {
+		answers Answers
+		err     error
+	}
+	type generatorResult struct {
+		blueprints []PageBlueprint
+		model      string
+		err        error
+	}
+	jevChannel := make(chan jevResult, 1)
+	generatorChannel := make(chan generatorResult, 1)
+	go func() {
+		answers, err := AskJev(prompt, currentSpecs)
+		jevChannel <- jevResult{answers: answers, err: err}
+	}()
+	go func() {
+		blueprints, model, err := GenerateBlueprints(prompt, currentSpecs)
+		generatorChannel <- generatorResult{blueprints: blueprints, model: model, err: err}
+	}()
+	jevOutput := <-jevChannel
+	generatorOutput := <-generatorChannel
+	answers := jevOutput.answers
 	mode := "jev"
-	if err != nil {
+	if jevOutput.err != nil {
 		answers = LocalAnswers(prompt)
 		mode = "local"
-		runtime.LogDebugf(a.ctx, "Jev fallback: %v", err)
+		runtime.LogDebugf(a.ctx, "Jev fallback: %v", jevOutput.err)
 	}
 	result := CompileConcepts(answers, mode, time.Since(started).Milliseconds())
 	result.Prompt = prompt
+	if generatorOutput.err != nil {
+		result = applyBlueprints(result, fallbackBlueprints(result.Specs), "local-grammar", "local-grammar")
+		result.Mode += "+local-ast"
+		runtime.LogDebugf(a.ctx, "Generator fallback: %v", generatorOutput.err)
+	} else {
+		result = applyBlueprints(result, generatorOutput.blueprints, "llm", generatorOutput.model)
+		result.Mode += "+llm"
+	}
 	a.broadcastEvent("tournament", result)
 	critique, critiqueErr := AskJevCritic(prompt, result.Specs)
 	if critiqueErr != nil {
@@ -185,7 +218,7 @@ func (a *App) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write([]byte(previewHTML))
+	_, _ = w.Write([]byte(previewDocument()))
 }
 
 func (a *App) handleEvents(w http.ResponseWriter, r *http.Request) {

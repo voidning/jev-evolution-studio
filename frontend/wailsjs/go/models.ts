@@ -1,5 +1,105 @@
 export namespace main {
 	
+	export class BlueprintItem {
+	    label: string;
+	    title: string;
+	    body: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BlueprintItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.label = source["label"];
+	        this.title = source["title"];
+	        this.body = source["body"];
+	        this.value = source["value"];
+	    }
+	}
+	export class SectionNode {
+	    id: string;
+	    kind: string;
+	    layout: string;
+	    visual: string;
+	    eyebrow: string;
+	    headline: string;
+	    body: string;
+	    items: BlueprintItem[];
+	    children: SectionNode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SectionNode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.layout = source["layout"];
+	        this.visual = source["visual"];
+	        this.eyebrow = source["eyebrow"];
+	        this.headline = source["headline"];
+	        this.body = source["body"];
+	        this.items = this.convertValues(source["items"], BlueprintItem);
+	        this.children = this.convertValues(source["children"], SectionNode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PageBlueprint {
+	    version: number;
+	    id: string;
+	    creativeDirection: string;
+	    sections: SectionNode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PageBlueprint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.id = source["id"];
+	        this.creativeDirection = source["creativeDirection"];
+	        this.sections = this.convertValues(source["sections"], SectionNode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Scorecard {
 	    originality: number;
 	    clarity: number;
@@ -102,6 +202,7 @@ export namespace main {
 	    description: string;
 	    decisions: Decision[];
 	    scores: Scorecard;
+	    blueprint: PageBlueprint;
 	
 	    static createFrom(source: any = {}) {
 	        return new PageSpec(source);
@@ -138,6 +239,7 @@ export namespace main {
 	        this.description = source["description"];
 	        this.decisions = this.convertValues(source["decisions"], Decision);
 	        this.scores = this.convertValues(source["scores"], Scorecard);
+	        this.blueprint = this.convertValues(source["blueprint"], PageBlueprint);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -167,6 +269,8 @@ export namespace main {
 	    swarmSize: number;
 	    mutationLog: string[];
 	    specs: PageSpec[];
+	    generator: string;
+	    astSource: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DesignResult(source);
@@ -182,6 +286,8 @@ export namespace main {
 	        this.swarmSize = source["swarmSize"];
 	        this.mutationLog = source["mutationLog"];
 	        this.specs = this.convertValues(source["specs"], PageSpec);
+	        this.generator = source["generator"];
+	        this.astSource = source["astSource"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -206,6 +312,7 @@ export namespace main {
 	    previewURL: string;
 	    result: DesignResult;
 	    hasAPIKey: boolean;
+	    hasGeneratorKey: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
@@ -216,6 +323,7 @@ export namespace main {
 	        this.previewURL = source["previewURL"];
 	        this.result = this.convertValues(source["result"], DesignResult);
 	        this.hasAPIKey = source["hasAPIKey"];
+	        this.hasGeneratorKey = source["hasGeneratorKey"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -236,6 +344,9 @@ export namespace main {
 		    return a;
 		}
 	}
+	
+	
+	
 	
 	
 	
