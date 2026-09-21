@@ -123,6 +123,8 @@ func (a *App) Evolve() DesignResult {
 	a.mu.RLock()
 	result := a.current
 	a.mu.RUnlock()
+	generationSeed := fmt.Sprintf("%s / generation %d", result.Prompt, result.Generation+1)
+	result = applyBlueprints(result, GenerateBlueprints(generationSeed, result.Specs), "procedural-search", "jev-grammar")
 	result = EvolveConcepts(result)
 	a.broadcastEvent("mutation", result)
 	critique, err := AskJevCritic(result.Prompt, result.Specs)

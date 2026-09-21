@@ -92,16 +92,18 @@ type PageSpec struct {
 }
 
 type DesignResult struct {
-	Mode        string     `json:"mode"`
-	LatencyMS   int64      `json:"latencyMs"`
-	Prompt      string     `json:"prompt"`
-	Generation  int        `json:"generation"`
-	Winner      int        `json:"winner"`
-	SwarmSize   int        `json:"swarmSize"`
-	MutationLog []string   `json:"mutationLog"`
-	Specs       []PageSpec `json:"specs"`
-	Generator   string     `json:"generator"`
-	ASTSource   string     `json:"astSource"`
+	Mode           string     `json:"mode"`
+	LatencyMS      int64      `json:"latencyMs"`
+	Prompt         string     `json:"prompt"`
+	Generation     int        `json:"generation"`
+	Winner         int        `json:"winner"`
+	SwarmSize      int        `json:"swarmSize"`
+	MutationLog    []string   `json:"mutationLog"`
+	Specs          []PageSpec `json:"specs"`
+	Generator      string     `json:"generator"`
+	ASTSource      string     `json:"astSource"`
+	CandidateCount int        `json:"candidateCount"`
+	DesignSpace    string     `json:"designSpace"`
 }
 
 type AppState struct {

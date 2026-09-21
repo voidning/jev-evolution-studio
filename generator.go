@@ -7,18 +7,21 @@ import (
 	"strings"
 )
 
-const grammarCandidatesPerUniverse = 48
+const (
+	grammarCandidatesPerUniverse = 2048
+	grammarDesignSpace           = "10^14+"
+)
 
 // GenerateBlueprints is a deterministic search over a bounded page grammar.
 // Jev supplies semantic choices; code owns every candidate, constraint and mutation.
 func GenerateBlueprints(prompt string, specs []PageSpec) []PageBlueprint {
-	seeds := fallbackBlueprints(specs)
-	result := make([]PageBlueprint, 0, len(seeds))
-	for index, base := range seeds {
+	result := make([]PageBlueprint, 0, len(specs))
+	for index, spec := range specs {
 		candidates := make([]scoredBlueprint, 0, grammarCandidatesPerUniverse)
 		for variant := 0; variant < grammarCandidatesPerUniverse; variant++ {
-			candidate := varyBlueprint(base, specs[index], promptSeed(prompt)+uint64(index*997+variant*37), variant)
-			candidates = append(candidates, scoredBlueprint{Blueprint: candidate, Score: grammarFitness(candidate, specs[index], variant)})
+			seed := promptSeed(prompt) ^ uint64((index+1)*104729) ^ uint64((variant+1)*13007)
+			candidate := composeBlueprint(spec, seed, variant)
+			candidates = append(candidates, scoredBlueprint{Blueprint: candidate, Score: grammarFitness(candidate, spec, variant)})
 		}
 		sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].Score > candidates[j].Score })
 		result = append(result, candidates[0].Blueprint)
@@ -37,67 +40,147 @@ func promptSeed(prompt string) uint64 {
 	return h.Sum64()
 }
 
-func varyBlueprint(base PageBlueprint, spec PageSpec, seed uint64, variant int) PageBlueprint {
-	blueprint := base
-	blueprint.Sections = append([]SectionNode(nil), base.Sections...)
-	layouts := map[string][]string{
-		"hero": {"split", "centered", "asymmetric", "fullbleed", "console"}, "metrics": {"horizontal", "grid", "mosaic"},
-		"manifesto": {"editorial", "centered", "fullbleed"}, "features": {"grid", "mosaic", "asymmetric"},
-		"timeline": {"sticky", "horizontal", "split"}, "gallery": {"orbit", "mosaic", "fullbleed"},
-		"terminal": {"console", "split", "sticky"}, "cluster": {"asymmetric", "grid", "mosaic"}, "cta": {"centered", "split", "fullbleed"},
+type grammarRNG struct{ state uint64 }
+
+func newGrammarRNG(seed uint64) *grammarRNG {
+	if seed == 0 {
+		seed = 0x9e3779b97f4a7c15
 	}
-	visuals := map[string][]string{
-		"hero": {"dashboard", "portal", "constellation", "code"}, "metrics": {"waveform", "telemetry", "dashboard"},
-		"manifesto": {"typography", "particles", "constellation"}, "features": {"specimens", "dashboard", "none"},
-		"timeline": {"waveform", "code", "telemetry"}, "gallery": {"particles", "constellation", "specimens"},
-		"terminal": {"code", "telemetry", "dashboard"}, "cluster": {"dashboard", "constellation", "specimens"}, "cta": {"portal", "constellation", "typography"},
-	}
-	for i := range blueprint.Sections {
-		node := &blueprint.Sections[i]
-		gene := int(seed>>uint((i%8)*8)) + variant*11 + i*17
-		if options := layouts[node.Kind]; len(options) > 0 {
-			node.Layout = options[positiveMod(gene, len(options))]
-		}
-		if options := visuals[node.Kind]; len(options) > 0 {
-			node.Visual = options[positiveMod(gene/3+variant, len(options))]
-		}
-	}
-	if len(blueprint.Sections) > 4 {
-		middle := append([]SectionNode(nil), blueprint.Sections[1:len(blueprint.Sections)-1]...)
-		rotation := positiveMod(int(seed)+variant, len(middle))
-		middle = append(middle[rotation:], middle[:rotation]...)
-		copy(blueprint.Sections[1:len(blueprint.Sections)-1], middle)
-	}
-	if (variant+int(seed%7))%3 == 0 && len(blueprint.Sections) < 8 {
-		artifact := grammarArtifact(spec, variant, seed)
-		insertAt := 1 + positiveMod(variant+int(seed%5), len(blueprint.Sections)-1)
-		blueprint.Sections = append(blueprint.Sections, SectionNode{})
-		copy(blueprint.Sections[insertAt+1:], blueprint.Sections[insertAt:])
-		blueprint.Sections[insertAt] = artifact
-	}
-	blueprint.CreativeDirection = fmt.Sprintf("%s · procedural genome %02d", base.CreativeDirection, variant+1)
-	return blueprint
+	return &grammarRNG{state: seed}
 }
 
-func grammarArtifact(spec PageSpec, variant int, seed uint64) SectionNode {
-	kinds := []string{"gallery", "manifesto", "timeline", "cluster", "terminal"}
-	kind := kinds[positiveMod(variant+int(seed%11), len(kinds))]
-	items := []BlueprintItem{}
+func (r *grammarRNG) next() uint64 {
+	r.state ^= r.state << 13
+	r.state ^= r.state >> 7
+	r.state ^= r.state << 17
+	return r.state
+}
+
+func (r *grammarRNG) pick(values []string) string { return values[int(r.next()%uint64(len(values)))] }
+func (r *grammarRNG) chance(percent uint64) bool  { return r.next()%100 < percent }
+
+var grammarLayouts = map[string][]string{
+	"hero": {"split", "centered", "asymmetric", "fullbleed", "console"}, "metrics": {"horizontal", "grid", "mosaic"},
+	"manifesto": {"editorial", "centered", "fullbleed"}, "features": {"grid", "mosaic", "asymmetric", "split"},
+	"timeline": {"sticky", "horizontal", "split"}, "gallery": {"orbit", "mosaic", "fullbleed", "asymmetric"},
+	"terminal": {"console", "split", "sticky"}, "quote": {"centered", "editorial", "fullbleed"},
+	"cluster": {"asymmetric", "grid", "mosaic", "split"}, "cta": {"centered", "split", "fullbleed", "asymmetric"},
+}
+
+var grammarVisuals = map[string][]string{
+	"hero": {"dashboard", "portal", "constellation", "code", "particles"}, "metrics": {"waveform", "telemetry", "dashboard"},
+	"manifesto": {"typography", "particles", "constellation", "none"}, "features": {"specimens", "dashboard", "constellation", "none"},
+	"timeline": {"waveform", "code", "telemetry", "constellation"}, "gallery": {"particles", "constellation", "specimens", "portal"},
+	"terminal": {"code", "telemetry", "dashboard"}, "quote": {"typography", "particles", "none"},
+	"cluster": {"dashboard", "constellation", "specimens", "telemetry"}, "cta": {"portal", "constellation", "typography", "dashboard"},
+}
+
+func composeBlueprint(spec PageSpec, seed uint64, variant int) PageBlueprint {
+	rng := newGrammarRNG(seed)
+	sectionCount := 5 + int(rng.next()%4)
+	middleCount := sectionCount - 2
+	kindPool := []string{"metrics", "manifesto", "features", "timeline", "gallery", "terminal", "quote", "cluster"}
+	if spec.ShowStats {
+		kindPool = append(kindPool, "metrics", "terminal")
+	}
+	if spec.Strategy == "impact" {
+		kindPool = append(kindPool, "gallery", "manifesto", "quote")
+	} else if spec.Strategy == "trust" {
+		kindPool = append(kindPool, "terminal", "metrics", "cluster")
+	} else {
+		kindPool = append(kindPool, "features", "timeline", "metrics")
+	}
+	sections := make([]SectionNode, 0, sectionCount)
+	sections = append(sections, composeNode("hero", spec, rng, variant, 0))
+	previous := "hero"
+	for position := 0; position < middleCount; position++ {
+		kind := rng.pick(kindPool)
+		for attempts := 0; kind == previous && attempts < 5; attempts++ {
+			kind = rng.pick(kindPool)
+		}
+		node := composeNode(kind, spec, rng, variant, position+1)
+		if kind == "cluster" || (rng.chance(18) && position > 0) {
+			childKinds := []string{"features", "metrics", "timeline", "gallery", "quote"}
+			childCount := 1 + int(rng.next()%2)
+			for child := 0; child < childCount; child++ {
+				node.Children = append(node.Children, composeNode(rng.pick(childKinds), spec, rng, variant, 10+position*2+child))
+			}
+		}
+		sections = append(sections, node)
+		previous = kind
+	}
+	sections = append(sections, composeNode("cta", spec, rng, variant, sectionCount-1))
+	directions := []string{"Adaptive editorial system", "Immersive signal journey", "Operational evidence field", "Kinetic product narrative", "Spatial intelligence atlas", "Living interface organism"}
+	return PageBlueprint{Version: 2, ID: strings.Split(spec.ID, "-")[0], CreativeDirection: rng.pick(directions) + fmt.Sprintf(" · genome %04x", seed&0xffff), Sections: sections}
+}
+
+func composeNode(kind string, spec PageSpec, rng *grammarRNG, variant, position int) SectionNode {
+	items := featureItems(spec)
+	if kind == "metrics" || kind == "terminal" {
+		items = metricItems(spec)
+	}
+	headlines := map[string][]string{
+		"metrics":   {"The system is already moving.", "Evidence at the speed of the event.", "Every signal, visible."},
+		"manifesto": {spec.SectionTitle, "The interface should feel like the subject itself.", "A new operating rhythm begins here."},
+		"features":  {spec.SectionTitle, "Different instruments. One coherent intelligence.", "Built as a system, not a feature list."},
+		"timeline":  {"From first signal to confident action.", "Follow the change as it happens.", "One continuous path through the unknown."},
+		"gallery":   {"A field of evidence you can enter.", "The invisible becomes an environment.", "Every artifact tells part of the story."},
+		"terminal":  {"Reality, instrumented.", "Proof you can inspect.", "The live system underneath the promise."},
+		"quote":     {"Build an interface people remember after the screen goes dark.", "Clarity can still feel impossible.", "The next decision is already taking shape."},
+		"cluster":   {"A system of systems.", "Signals connect before they become obvious.", spec.SectionTitle},
+		"cta":       {"Enter the system now.", "See the whole thing live.", "Start with one real question."},
+	}
+	eyebrows := map[string][]string{
+		"hero": {spec.Eyebrow, "LIVE SYSTEM / 01", "A NEW INTERFACE"}, "metrics": {"LIVE EVIDENCE", "SIGNAL PULSE", "MEASURED NOW"},
+		"manifesto": {"THE CENTRAL IDEA", "WHY THIS EXISTS", "A DIFFERENT POSSIBILITY"}, "features": {"CAPABILITIES", "SYSTEM PRIMITIVES", "WHAT CHANGES"},
+		"timeline": {"THE SEQUENCE", "HOW IT MOVES", "FROM SIGNAL TO ACTION"}, "gallery": {"ARTIFACT FIELD", "SIGNALS EMERGING", "VISUAL EVIDENCE"},
+		"terminal": {"SYSTEM ONLINE", "VERIFIED RUNTIME", "UNDER THE SURFACE"}, "quote": {"POINT OF VIEW", "HUMAN SIGNAL", "THE BELIEF"},
+		"cluster": {"COMPOSITE SYSTEM", "EVIDENCE GRAPH", "CONNECTED FIELD"}, "cta": {"BEGIN", "READY WHEN YOU ARE", "NEXT MOVE"},
+	}
+	node := SectionNode{ID: fmt.Sprintf("%s-%d-%d", kind, position, variant), Kind: kind, Layout: rng.pick(grammarLayouts[kind]), Visual: rng.pick(grammarVisuals[kind]), Eyebrow: rng.pick(eyebrows[kind]), Body: spec.Description, Items: items}
+	if kind == "hero" {
+		node.Headline = spec.Title
+	} else {
+		node.Headline = rng.pick(headlines[kind])
+	}
+	return node
+}
+
+func featureItems(spec PageSpec) []BlueprintItem {
+	items := make([]BlueprintItem, 0, len(spec.FeaturesContent))
 	for _, feature := range spec.FeaturesContent {
 		items = append(items, BlueprintItem{Label: feature.Kicker, Title: feature.Title, Body: feature.Body})
 	}
-	return SectionNode{ID: fmt.Sprintf("artifact-%d", variant), Kind: kind, Layout: "mosaic", Visual: "particles", Eyebrow: "GENERATIVE ARTIFACT", Headline: spec.SectionTitle, Body: spec.Description, Items: items}
+	return items
+}
+
+func metricItems(spec PageSpec) []BlueprintItem {
+	items := make([]BlueprintItem, 0, len(spec.Metrics))
+	for _, metric := range spec.Metrics {
+		items = append(items, BlueprintItem{Label: metric.Label, Value: metric.Value + metric.Unit})
+	}
+	return items
 }
 
 func grammarFitness(blueprint PageBlueprint, spec PageSpec, variant int) int {
-	score := 100 + len(blueprint.Sections)*4
-	seen := map[string]bool{}
+	targetLength := map[string]int{"airy": 5, "balanced": 6, "compact": 8}[spec.Density]
+	if targetLength == 0 {
+		targetLength = 6
+	}
+	lengthDistance := len(blueprint.Sections) - targetLength
+	if lengthDistance < 0 {
+		lengthDistance = -lengthDistance
+	}
+	score := 200 - lengthDistance*100
+	seen, kinds := map[string]bool{}, map[string]bool{}
 	for _, node := range blueprint.Sections {
 		signature := node.Kind + "/" + node.Layout + "/" + node.Visual
 		if !seen[signature] {
 			score += 7
 		}
 		seen[signature] = true
+		kinds[node.Kind] = true
+		score += len(node.Children) * 4
 		if spec.Strategy == "impact" && (node.Layout == "fullbleed" || node.Layout == "orbit") {
 			score += 5
 		}
@@ -108,7 +191,11 @@ func grammarFitness(blueprint PageBlueprint, spec PageSpec, variant int) int {
 			score += 5
 		}
 	}
-	return score - variant/12
+	score += len(kinds) * 6
+	if blueprint.Sections[0].Kind == "hero" && blueprint.Sections[len(blueprint.Sections)-1].Kind == "cta" {
+		score += 20
+	}
+	return score - variant/256
 }
 
 func positiveMod(value, divisor int) int {
@@ -188,54 +275,16 @@ func applyBlueprints(result DesignResult, blueprints []PageBlueprint, source, ge
 	}
 	result.ASTSource = source
 	result.Generator = generator
+	result.CandidateCount = grammarCandidatesPerUniverse * len(result.Specs)
+	result.DesignSpace = grammarDesignSpace
 	return result
 }
 
 func fallbackBlueprints(specs []PageSpec) []PageBlueprint {
 	result := make([]PageBlueprint, 0, len(specs))
 	for index, spec := range specs {
-		items := make([]BlueprintItem, 0, len(spec.FeaturesContent))
-		for _, feature := range spec.FeaturesContent {
-			items = append(items, BlueprintItem{Label: feature.Kicker, Title: feature.Title, Body: feature.Body})
-		}
-		metrics := make([]BlueprintItem, 0, len(spec.Metrics))
-		for _, metric := range spec.Metrics {
-			metrics = append(metrics, BlueprintItem{Label: metric.Label, Value: metric.Value + metric.Unit})
-		}
-		var direction string
-		var sections []SectionNode
-		switch index {
-		case 1:
-			direction = "Immersive living narrative"
-			sections = []SectionNode{
-				{ID: "arrival", Kind: "hero", Layout: "fullbleed", Visual: "portal", Eyebrow: spec.Eyebrow, Headline: spec.Title, Body: spec.Description},
-				{ID: "signals", Kind: "gallery", Layout: "orbit", Visual: "particles", Eyebrow: "SIGNALS EMERGING", Headline: spec.SectionTitle, Body: "Move through a living field of evidence.", Items: items},
-				{ID: "belief", Kind: "manifesto", Layout: "editorial", Visual: "typography", Eyebrow: "A DIFFERENT POSSIBILITY", Headline: "The interface should feel like entering the subject itself.", Body: spec.Description},
-				{ID: "journey", Kind: "timeline", Layout: "sticky", Visual: "waveform", Eyebrow: "THE JOURNEY", Headline: "One continuous descent into understanding.", Items: items},
-				{ID: "proof", Kind: "metrics", Layout: "horizontal", Visual: "telemetry", Eyebrow: "LIVE EVIDENCE", Headline: "The world is already moving.", Items: metrics},
-				{ID: "join", Kind: "cta", Layout: "centered", Visual: "constellation", Eyebrow: "ENTER THE NEXT CHAPTER", Headline: "Come closer.", Body: "Join the people building what comes next."},
-			}
-		case 2:
-			direction = "Operational evidence system"
-			sections = []SectionNode{
-				{ID: "command", Kind: "hero", Layout: "console", Visual: "code", Eyebrow: spec.Eyebrow, Headline: spec.Title, Body: spec.Description},
-				{ID: "runtime", Kind: "terminal", Layout: "split", Visual: "telemetry", Eyebrow: "SYSTEM ONLINE", Headline: "Reality, instrumented.", Body: "Every signal enters an observable chain of evidence.", Items: metrics},
-				{ID: "evidence", Kind: "cluster", Layout: "asymmetric", Visual: "dashboard", Eyebrow: "EVIDENCE GRAPH", Headline: spec.SectionTitle, Children: []SectionNode{{ID: "capabilities", Kind: "features", Layout: "grid", Visual: "none", Items: items}, {ID: "telemetry", Kind: "metrics", Layout: "horizontal", Visual: "waveform", Items: metrics}}},
-				{ID: "sequence", Kind: "timeline", Layout: "horizontal", Visual: "code", Eyebrow: "VERIFIED SEQUENCE", Headline: "From first observation to confident action.", Items: items},
-				{ID: "commit", Kind: "cta", Layout: "split", Visual: "dashboard", Eyebrow: "READY WHEN YOU ARE", Headline: "Put the system to work.", Body: "Start with a live, inspectable demonstration."},
-			}
-		default:
-			direction = "Editorial intelligence landscape"
-			sections = []SectionNode{
-				{ID: "hero", Kind: "hero", Layout: "asymmetric", Visual: "dashboard", Eyebrow: spec.Eyebrow, Headline: spec.Title, Body: spec.Description},
-				{ID: "pulse", Kind: "metrics", Layout: "horizontal", Visual: "waveform", Eyebrow: "LIVE PULSE", Headline: "A system you can read at a glance.", Items: metrics},
-				{ID: "thesis", Kind: "manifesto", Layout: "editorial", Visual: "typography", Eyebrow: "THE CENTRAL IDEA", Headline: spec.SectionTitle, Body: spec.Description},
-				{ID: "capabilities", Kind: "features", Layout: "mosaic", Visual: "specimens", Eyebrow: "CAPABILITIES", Headline: "Different tools. One coherent intelligence.", Items: items},
-				{ID: "flow", Kind: "timeline", Layout: "split", Visual: "constellation", Eyebrow: "HOW IT MOVES", Headline: "From signal to outcome without the dead space.", Items: items},
-				{ID: "begin", Kind: "cta", Layout: "asymmetric", Visual: "portal", Eyebrow: "BEGIN", Headline: "See the whole system live.", Body: "Bring one real question. Leave with a new direction."},
-			}
-		}
-		result = append(result, PageBlueprint{Version: 2, ID: strings.Split(spec.ID, "-")[0], CreativeDirection: direction, Sections: sections})
+		seed := promptSeed(spec.World+"/"+spec.Strategy+"/fallback") ^ uint64((index+1)*7919)
+		result = append(result, composeBlueprint(spec, seed, index))
 	}
 	return result
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -71,9 +72,43 @@ func TestProceduralSearchIsDeterministicAndPromptSensitive(t *testing.T) {
 		t.Fatal("different prompts collapsed to the same AST")
 	}
 	for _, blueprint := range first {
-		if len(blueprint.Sections) < 5 || !strings.Contains(blueprint.CreativeDirection, "procedural genome") {
+		if len(blueprint.Sections) < 5 || !strings.Contains(blueprint.CreativeDirection, "genome") {
 			t.Fatalf("procedural winner is incomplete: %+v", blueprint)
 		}
+	}
+}
+
+func TestCompositionalGrammarDoesNotCollapseToThreeSkeletons(t *testing.T) {
+	prompts := []string{
+		"deep ocean expedition", "quiet biotech laboratory", "kinetic music platform", "trusted banking infrastructure",
+		"playful robotics school", "cinematic space observatory", "minimal developer database", "warm creative studio",
+	}
+	signatures := map[string]bool{}
+	for _, prompt := range prompts {
+		seed := CompileConcepts(LocalAnswers(prompt), "local", 0)
+		blueprints := GenerateBlueprints(prompt, seed.Specs)
+		for _, blueprint := range blueprints {
+			parts := make([]string, 0, len(blueprint.Sections))
+			for _, section := range blueprint.Sections {
+				parts = append(parts, section.Kind+"/"+section.Layout+"/"+section.Visual+fmt.Sprint(len(section.Children)))
+			}
+			signatures[strings.Join(parts, "|")] = true
+		}
+	}
+	if len(signatures) < 20 {
+		t.Fatalf("grammar collapsed to too few structures: got %d unique signatures from 24 pages", len(signatures))
+	}
+}
+
+func TestTournamentWinnersSpanPageLengths(t *testing.T) {
+	seed := CompileConcepts(LocalAnswers("cinematic live research system"), "local", 0)
+	blueprints := GenerateBlueprints("cinematic live research system", seed.Specs)
+	lengths := map[int]bool{}
+	for _, blueprint := range blueprints {
+		lengths[len(blueprint.Sections)] = true
+	}
+	if len(lengths) < 3 || !lengths[5] || !lengths[6] || !lengths[8] {
+		t.Fatalf("expected density lenses to select 5, 6 and 8 section pages, got %v", lengths)
 	}
 }
 

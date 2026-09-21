@@ -271,6 +271,8 @@ export namespace main {
 	    specs: PageSpec[];
 	    generator: string;
 	    astSource: string;
+	    candidateCount: number;
+	    designSpace: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DesignResult(source);
@@ -288,6 +290,8 @@ export namespace main {
 	        this.specs = this.convertValues(source["specs"], PageSpec);
 	        this.generator = source["generator"];
 	        this.astSource = source["astSource"];
+	        this.candidateCount = source["candidateCount"];
+	        this.designSpace = source["designSpace"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

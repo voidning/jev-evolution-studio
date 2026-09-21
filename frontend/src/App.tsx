@@ -6,11 +6,11 @@ type Decision = { label: string; value: string; confidence: number; group: strin
 type Scorecard = { originality: number; clarity: number; trust: number; conversion: number; composite: number };
 type Blueprint = { version: number; id: string; creativeDirection: string; sections: unknown[] };
 type PageSpec = { id: string; name: string; descriptor: string; strategy: string; generation: number; mutation: string; theme: string; hero: string; visual: string; features: string; density: string; navigation: string; motion: string; story: string; cta: string; world: string; brand: string; eyebrow: string; showLogos: boolean; showPricing: boolean; showStats: boolean; title: string; description: string; decisions: Decision[]; scores: Scorecard; blueprint: Blueprint };
-type DesignResult = { mode: string; latencyMs: number; prompt: string; generation: number; winner: number; swarmSize: number; mutationLog: string[]; specs: PageSpec[]; generator: string; astSource: string };
+type DesignResult = { mode: string; latencyMs: number; prompt: string; generation: number; winner: number; swarmSize: number; mutationLog: string[]; specs: PageSpec[]; generator: string; astSource: string; candidateCount: number; designSpace: string };
 
 const DEFAULT_PROMPT = "为一款实时 AI 数据分析产品做主页。面向开发者，深色、克制、有速度感，重点突出实时分析。";
 const QUICK = ["做得像来自未来，但必须可信", "锁住技术感，增加人类情绪", "极端原创，并强化申请内测"];
-const PHASES = ["Jev parallel intent", "144 AST candidates", "Constraint tournament", "Critic scoring", "Gen 02 mutation"];
+const PHASES = ["Jev parallel intent", "6,144 fresh ASTs", "Diversity tournament", "Critic scoring", "Gen 02 mutation"];
 
 function App() {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -92,12 +92,12 @@ function App() {
       </section>
 
       <section className="concept-section">
-        <div className="section-heading"><span><b>02</b> Universe tournament</span><small>{generating ? "EVOLVING…" : `GEN ${String(result?.generation ?? 1).padStart(2, "0")}`}</small></div>
+        <div className="section-heading"><span><b>02</b> Sample tournament</span><small>{generating ? "EVOLVING…" : `3 WINNERS / ${result?.candidateCount?.toLocaleString() ?? 0} SAMPLED`}</small></div>
         <div className="concept-grid">
           {result?.specs.map((item, index) => (
             <button key={item.id} className={`concept ${active === index ? "active" : ""}`} onClick={() => void choose(index)}>
               <span className={`swatch ${item.theme}`}><b>{String.fromCharCode(65 + index)}</b><i /></span>
-              <div><strong>{item.name}</strong><small>{item.strategy} · {item.scores.composite || "—"}</small></div>
+              <div><strong>{item.blueprint.creativeDirection.split(" · ")[0]}</strong><small>{item.blueprint.creativeDirection.split(" · ")[1] ?? item.strategy} · {item.scores.composite || "—"}</small></div>
               {result?.winner === index ? <Trophy size={12} /> : active === index ? <Check size={13} /> : <ChevronRight size={13} />}
             </button>
           ))}
@@ -126,7 +126,7 @@ function App() {
       <footer className="statusbar">
         <span><CircleDot size={10} /> {generating ? PHASES[phase] : "Genome synced"}</span>
         <span><Gauge size={10} /> {result?.latencyMs ?? 0} ms</span>
-        <span><Layers3 size={10} /> {result?.specs?.[0]?.blueprint?.sections?.length ?? 0} AST nodes</span>
+        <span><Layers3 size={10} /> {result?.candidateCount?.toLocaleString() ?? 0} sampled / {result?.designSpace ?? "—"} possible</span>
       </footer>
     </main>
   );
