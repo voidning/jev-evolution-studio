@@ -105,10 +105,9 @@ type DesignResult struct {
 }
 
 type AppState struct {
-	PreviewURL      string       `json:"previewURL"`
-	Result          DesignResult `json:"result"`
-	HasAPIKey       bool         `json:"hasAPIKey"`
-	HasGeneratorKey bool         `json:"hasGeneratorKey"`
+	PreviewURL string       `json:"previewURL"`
+	Result     DesignResult `json:"result"`
+	HasAPIKey  bool         `json:"hasAPIKey"`
 }
 
 type Answer struct {

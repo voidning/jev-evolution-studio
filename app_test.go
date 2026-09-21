@@ -3,10 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,39 +47,33 @@ func TestFallbackBlueprintsAreRecursiveAndStructurallyDistinct(t *testing.T) {
 	}
 }
 
-func TestGeneratorUsesStructuredPageAST(t *testing.T) {
+func TestProceduralSearchIsDeterministicAndPromptSensitive(t *testing.T) {
 	seed := CompileConcepts(LocalAnswers("ocean exploration"), "local", 0)
-	want := fallbackBlueprints(seed.Specs)
-	encoded, err := json.Marshal(map[string]any{"blueprints": want})
-	if err != nil {
-		t.Fatal(err)
+	first := GenerateBlueprints("ocean exploration", seed.Specs)
+	repeat := GenerateBlueprints("ocean exploration", seed.Specs)
+	second := GenerateBlueprints("quiet ocean research", seed.Specs)
+	if len(first) != 3 || len(repeat) != 3 || len(second) != 3 {
+		t.Fatalf("expected three procedural winners")
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer test-key" {
-			t.Errorf("unexpected authorization header")
+	signature := func(blueprints []PageBlueprint) string {
+		parts := []string{}
+		for _, blueprint := range blueprints {
+			for _, section := range blueprint.Sections {
+				parts = append(parts, section.Kind+"/"+section.Layout+"/"+section.Visual)
+			}
 		}
-		body, _ := io.ReadAll(r.Body)
-		var request map[string]any
-		if err := json.Unmarshal(body, &request); err != nil {
-			t.Errorf("invalid request: %v", err)
-		}
-		text, _ := request["text"].(map[string]any)
-		format, _ := text["format"].(map[string]any)
-		if format["type"] != "json_schema" || format["strict"] != true {
-			t.Errorf("generator did not request strict structured output: %v", format)
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"content": []any{map[string]any{"type": "output_text", "text": string(encoded)}}}}})
-	}))
-	defer server.Close()
-	t.Setenv("GENERATOR_API_KEY", "test-key")
-	t.Setenv("GENERATOR_BASE_URL", server.URL)
-	t.Setenv("GENERATOR_MODEL", "test-fast-model")
-	blueprints, model, err := GenerateBlueprints("ocean exploration", seed.Specs)
-	if err != nil {
-		t.Fatal(err)
+		return strings.Join(parts, "|")
 	}
-	if model != "test-fast-model" || len(blueprints) != 3 || blueprints[0].Version != 2 {
-		t.Fatalf("unexpected generator output: model=%s blueprints=%+v", model, blueprints)
+	if signature(first) != signature(repeat) {
+		t.Fatal("same prompt did not reproduce the same AST")
+	}
+	if signature(first) == signature(second) {
+		t.Fatal("different prompts collapsed to the same AST")
+	}
+	for _, blueprint := range first {
+		if len(blueprint.Sections) < 5 || !strings.Contains(blueprint.CreativeDirection, "procedural genome") {
+			t.Fatalf("procedural winner is incomplete: %+v", blueprint)
+		}
 	}
 }
 

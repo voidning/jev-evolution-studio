@@ -1,169 +1,122 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
+	"hash/fnv"
+	"sort"
 	"strings"
-	"time"
 )
 
-const defaultGeneratorModel = "gpt-5.6-luna"
+const grammarCandidatesPerUniverse = 48
 
-func GenerateBlueprints(prompt string, specs []PageSpec) ([]PageBlueprint, string, error) {
-	key := loadGeneratorKey()
-	if key == "" {
-		return nil, "local-grammar", errors.New("OPENAI_API_KEY or GENERATOR_API_KEY is not configured")
-	}
-	model := strings.TrimSpace(os.Getenv("GENERATOR_MODEL"))
-	if model == "" {
-		model = defaultGeneratorModel
-	}
-	endpoint := strings.TrimSpace(os.Getenv("GENERATOR_BASE_URL"))
-	if endpoint == "" {
-		endpoint = "https://api.openai.com/v1/responses"
-	}
-	constitutions := []map[string]string{
-		{"id": "signal", "purpose": "information clarity", "rule": "Make the product understandable through an unexpected but highly usable composition."},
-		{"id": "pulse", "purpose": "immersive emotion", "rule": "Build a cinematic interactive journey; avoid conventional SaaS section rhythms."},
-		{"id": "atlas", "purpose": "system credibility", "rule": "Turn evidence, operations, and technical reality into a distinctive visual world."},
-	}
-	state := map[string]any{"request": prompt, "constitutions": constitutions, "semantic_seed": specs}
-	stateJSON, _ := json.Marshal(state)
-	instructions := `You are a generative web art director. Create exactly three meaningfully different page blueprints from the request and constitutions. Return a compact page AST, not HTML, CSS, Tailwind classes, or implementation code. Each blueprint must contain 5-8 sections, start with a hero, end with a CTA, use a different narrative order, and include at least one unusual interactive or visual section. Use concise, product-specific copy. Children create nested compositions. Never repeat the same section sequence across blueprints.`
-	payload := map[string]any{
-		"model":             model,
-		"instructions":      instructions,
-		"input":             string(stateJSON),
-		"reasoning":         map[string]any{"effort": "none"},
-		"max_output_tokens": 5200,
-		"text":              map[string]any{"format": map[string]any{"type": "json_schema", "name": "page_blueprints", "strict": true, "schema": blueprintSchema()}},
-	}
-	body, _ := json.Marshal(payload)
-	ctx, cancel := context.WithTimeout(context.Background(), 14*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, model, err
-	}
-	req.Header.Set("Authorization", "Bearer "+key)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, model, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		limited, _ := io.ReadAll(io.LimitReader(resp.Body, 768))
-		return nil, model, fmt.Errorf("generator returned %s: %s", resp.Status, strings.TrimSpace(string(limited)))
-	}
-	var response struct {
-		OutputText string `json:"output_text"`
-		Output     []struct {
-			Content []struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"output"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, model, err
-	}
-	text := response.OutputText
-	if text == "" {
-		for _, output := range response.Output {
-			for _, content := range output.Content {
-				if content.Type == "output_text" && content.Text != "" {
-					text = content.Text
-					break
-				}
-			}
+// GenerateBlueprints is a deterministic search over a bounded page grammar.
+// Jev supplies semantic choices; code owns every candidate, constraint and mutation.
+func GenerateBlueprints(prompt string, specs []PageSpec) []PageBlueprint {
+	seeds := fallbackBlueprints(specs)
+	result := make([]PageBlueprint, 0, len(seeds))
+	for index, base := range seeds {
+		candidates := make([]scoredBlueprint, 0, grammarCandidatesPerUniverse)
+		for variant := 0; variant < grammarCandidatesPerUniverse; variant++ {
+			candidate := varyBlueprint(base, specs[index], promptSeed(prompt)+uint64(index*997+variant*37), variant)
+			candidates = append(candidates, scoredBlueprint{Blueprint: candidate, Score: grammarFitness(candidate, specs[index], variant)})
 		}
+		sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].Score > candidates[j].Score })
+		result = append(result, candidates[0].Blueprint)
 	}
-	if text == "" {
-		return nil, model, errors.New("generator returned no output text")
-	}
-	var decoded struct {
-		Blueprints []PageBlueprint `json:"blueprints"`
-	}
-	if err := json.Unmarshal([]byte(text), &decoded); err != nil {
-		return nil, model, fmt.Errorf("decode page blueprints: %w", err)
-	}
-	if len(decoded.Blueprints) != 3 {
-		return nil, model, fmt.Errorf("generator returned %d blueprints, expected 3", len(decoded.Blueprints))
-	}
-	return normalizeBlueprints(decoded.Blueprints, specs), model, nil
+	return normalizeBlueprints(result, specs)
 }
 
-func blueprintSchema() map[string]any {
-	item := map[string]any{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{
-			"label": map[string]any{"type": "string"}, "title": map[string]any{"type": "string"},
-			"body": map[string]any{"type": "string"}, "value": map[string]any{"type": "string"},
-		},
-		"required": []string{"label", "title", "body", "value"},
-	}
-	node := map[string]any{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{
-			"id":      map[string]any{"type": "string"},
-			"kind":    map[string]any{"type": "string", "enum": []string{"hero", "metrics", "manifesto", "features", "timeline", "gallery", "terminal", "quote", "cta", "cluster"}},
-			"layout":  map[string]any{"type": "string", "enum": []string{"split", "centered", "asymmetric", "fullbleed", "grid", "mosaic", "editorial", "horizontal", "sticky", "orbit", "console"}},
-			"visual":  map[string]any{"type": "string", "enum": []string{"dashboard", "waveform", "constellation", "particles", "specimens", "telemetry", "code", "portal", "typography", "none"}},
-			"eyebrow": map[string]any{"type": "string"}, "headline": map[string]any{"type": "string"}, "body": map[string]any{"type": "string"},
-			"items":    map[string]any{"type": "array", "maxItems": 6, "items": item},
-			"children": map[string]any{"type": "array", "maxItems": 4, "items": map[string]any{"$ref": "#/$defs/node"}},
-		},
-		"required": []string{"id", "kind", "layout", "visual", "eyebrow", "headline", "body", "items", "children"},
-	}
-	return map[string]any{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{"blueprints": map[string]any{
-			"type": "array", "minItems": 3, "maxItems": 3,
-			"items": map[string]any{
-				"type": "object", "additionalProperties": false,
-				"properties": map[string]any{
-					"version":           map[string]any{"type": "integer", "enum": []int{2}},
-					"id":                map[string]any{"type": "string", "enum": []string{"signal", "pulse", "atlas"}},
-					"creativeDirection": map[string]any{"type": "string"},
-					"sections":          map[string]any{"type": "array", "minItems": 5, "maxItems": 8, "items": map[string]any{"$ref": "#/$defs/node"}},
-				},
-				"required": []string{"version", "id", "creativeDirection", "sections"},
-			},
-		}},
-		"required": []string{"blueprints"}, "$defs": map[string]any{"node": node},
-	}
+type scoredBlueprint struct {
+	Blueprint PageBlueprint
+	Score     int
 }
 
-func loadGeneratorKey() string {
-	for _, name := range []string{"GENERATOR_API_KEY", "OPENAI_API_KEY"} {
-		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
-			return value
+func promptSeed(prompt string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(prompt))))
+	return h.Sum64()
+}
+
+func varyBlueprint(base PageBlueprint, spec PageSpec, seed uint64, variant int) PageBlueprint {
+	blueprint := base
+	blueprint.Sections = append([]SectionNode(nil), base.Sections...)
+	layouts := map[string][]string{
+		"hero": {"split", "centered", "asymmetric", "fullbleed", "console"}, "metrics": {"horizontal", "grid", "mosaic"},
+		"manifesto": {"editorial", "centered", "fullbleed"}, "features": {"grid", "mosaic", "asymmetric"},
+		"timeline": {"sticky", "horizontal", "split"}, "gallery": {"orbit", "mosaic", "fullbleed"},
+		"terminal": {"console", "split", "sticky"}, "cluster": {"asymmetric", "grid", "mosaic"}, "cta": {"centered", "split", "fullbleed"},
+	}
+	visuals := map[string][]string{
+		"hero": {"dashboard", "portal", "constellation", "code"}, "metrics": {"waveform", "telemetry", "dashboard"},
+		"manifesto": {"typography", "particles", "constellation"}, "features": {"specimens", "dashboard", "none"},
+		"timeline": {"waveform", "code", "telemetry"}, "gallery": {"particles", "constellation", "specimens"},
+		"terminal": {"code", "telemetry", "dashboard"}, "cluster": {"dashboard", "constellation", "specimens"}, "cta": {"portal", "constellation", "typography"},
+	}
+	for i := range blueprint.Sections {
+		node := &blueprint.Sections[i]
+		gene := int(seed>>uint((i%8)*8)) + variant*11 + i*17
+		if options := layouts[node.Kind]; len(options) > 0 {
+			node.Layout = options[positiveMod(gene, len(options))]
+		}
+		if options := visuals[node.Kind]; len(options) > 0 {
+			node.Visual = options[positiveMod(gene/3+variant, len(options))]
 		}
 	}
-	paths := apiKeyPaths("")
-	if executable, err := os.Executable(); err == nil {
-		paths = apiKeyPaths(executable)
+	if len(blueprint.Sections) > 4 {
+		middle := append([]SectionNode(nil), blueprint.Sections[1:len(blueprint.Sections)-1]...)
+		rotation := positiveMod(int(seed)+variant, len(middle))
+		middle = append(middle[rotation:], middle[:rotation]...)
+		copy(blueprint.Sections[1:len(blueprint.Sections)-1], middle)
 	}
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
+	if (variant+int(seed%7))%3 == 0 && len(blueprint.Sections) < 8 {
+		artifact := grammarArtifact(spec, variant, seed)
+		insertAt := 1 + positiveMod(variant+int(seed%5), len(blueprint.Sections)-1)
+		blueprint.Sections = append(blueprint.Sections, SectionNode{})
+		copy(blueprint.Sections[insertAt+1:], blueprint.Sections[insertAt:])
+		blueprint.Sections[insertAt] = artifact
+	}
+	blueprint.CreativeDirection = fmt.Sprintf("%s · procedural genome %02d", base.CreativeDirection, variant+1)
+	return blueprint
+}
+
+func grammarArtifact(spec PageSpec, variant int, seed uint64) SectionNode {
+	kinds := []string{"gallery", "manifesto", "timeline", "cluster", "terminal"}
+	kind := kinds[positiveMod(variant+int(seed%11), len(kinds))]
+	items := []BlueprintItem{}
+	for _, feature := range spec.FeaturesContent {
+		items = append(items, BlueprintItem{Label: feature.Kicker, Title: feature.Title, Body: feature.Body})
+	}
+	return SectionNode{ID: fmt.Sprintf("artifact-%d", variant), Kind: kind, Layout: "mosaic", Visual: "particles", Eyebrow: "GENERATIVE ARTIFACT", Headline: spec.SectionTitle, Body: spec.Description, Items: items}
+}
+
+func grammarFitness(blueprint PageBlueprint, spec PageSpec, variant int) int {
+	score := 100 + len(blueprint.Sections)*4
+	seen := map[string]bool{}
+	for _, node := range blueprint.Sections {
+		signature := node.Kind + "/" + node.Layout + "/" + node.Visual
+		if !seen[signature] {
+			score += 7
 		}
-		for _, line := range strings.Split(string(data), "\n") {
-			parts := strings.SplitN(strings.TrimSpace(line), "=", 2)
-			if len(parts) == 2 && (parts[0] == "GENERATOR_API_KEY" || parts[0] == "OPENAI_API_KEY") {
-				return strings.Trim(strings.TrimSpace(parts[1]), "\"'")
-			}
+		seen[signature] = true
+		if spec.Strategy == "impact" && (node.Layout == "fullbleed" || node.Layout == "orbit") {
+			score += 5
+		}
+		if spec.Strategy == "trust" && (node.Visual == "telemetry" || node.Visual == "code") {
+			score += 5
+		}
+		if spec.Strategy == "clarity" && (node.Layout == "split" || node.Layout == "grid") {
+			score += 5
 		}
 	}
-	return ""
+	return score - variant/12
+}
+
+func positiveMod(value, divisor int) int {
+	value %= divisor
+	if value < 0 {
+		value += divisor
+	}
+	return value
 }
 
 func normalizeBlueprints(input []PageBlueprint, specs []PageSpec) []PageBlueprint {

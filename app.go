@@ -34,7 +34,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.token = randomToken()
 	initial := CompileConcepts(LocalAnswers(defaultPrompt), "local", 0)
-	initial = applyBlueprints(initial, fallbackBlueprints(initial.Specs), "local-grammar", "local-grammar")
+	initial = applyBlueprints(initial, GenerateBlueprints(defaultPrompt, initial.Specs), "procedural-search", "jev-grammar")
 	a.current = ApplyCritic(initial, LocalCritic(initial.Specs))
 	if err := a.startPreviewServer(); err != nil {
 		runtime.LogErrorf(ctx, "preview server: %v", err)
@@ -52,7 +52,7 @@ func (a *App) shutdown(ctx context.Context) {
 func (a *App) GetState() AppState {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return AppState{PreviewURL: a.previewURL, Result: a.current, HasAPIKey: loadAPIKey() != "", HasGeneratorKey: loadGeneratorKey() != ""}
+	return AppState{PreviewURL: a.previewURL, Result: a.current, HasAPIKey: loadAPIKey() != ""}
 }
 
 func (a *App) OpenStage() string {
@@ -78,23 +78,12 @@ func (a *App) Generate(prompt string) DesignResult {
 		answers Answers
 		err     error
 	}
-	type generatorResult struct {
-		blueprints []PageBlueprint
-		model      string
-		err        error
-	}
 	jevChannel := make(chan jevResult, 1)
-	generatorChannel := make(chan generatorResult, 1)
 	go func() {
 		answers, err := AskJev(prompt, currentSpecs)
 		jevChannel <- jevResult{answers: answers, err: err}
 	}()
-	go func() {
-		blueprints, model, err := GenerateBlueprints(prompt, currentSpecs)
-		generatorChannel <- generatorResult{blueprints: blueprints, model: model, err: err}
-	}()
 	jevOutput := <-jevChannel
-	generatorOutput := <-generatorChannel
 	answers := jevOutput.answers
 	mode := "jev"
 	if jevOutput.err != nil {
@@ -104,14 +93,8 @@ func (a *App) Generate(prompt string) DesignResult {
 	}
 	result := CompileConcepts(answers, mode, time.Since(started).Milliseconds())
 	result.Prompt = prompt
-	if generatorOutput.err != nil {
-		result = applyBlueprints(result, fallbackBlueprints(result.Specs), "local-grammar", "local-grammar")
-		result.Mode += "+local-ast"
-		runtime.LogDebugf(a.ctx, "Generator fallback: %v", generatorOutput.err)
-	} else {
-		result = applyBlueprints(result, generatorOutput.blueprints, "llm", generatorOutput.model)
-		result.Mode += "+llm"
-	}
+	result = applyBlueprints(result, GenerateBlueprints(prompt, result.Specs), "procedural-search", "jev-grammar")
+	result.Mode += "+procedural-ast"
 	a.broadcastEvent("tournament", result)
 	critique, critiqueErr := AskJevCritic(prompt, result.Specs)
 	if critiqueErr != nil {

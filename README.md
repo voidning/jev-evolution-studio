@@ -35,10 +35,14 @@
       ▼              ▼              ▼
  Signal           Pulse           Atlas
  清晰可用          沉浸叙事          系统可信
-      └────── 快速生成 LLM ─────────┘
+      └────── 本地语法搜索 ─────────┘
                      │
                      ▼
-        三棵递归 Page AST（5–8 个 Section）
+        144 个递归 Page AST 候选（每个宇宙 48 个）
+        约束过滤 / 适配度计算 / 新颖度竞争
+                     │
+                     ▼
+        三棵胜出 Page AST（5–8 个 Section）
         布局 / 视觉 / 内容 / 子节点自由组合
       │              │              │
       └──────────────┴──────────────┘
@@ -56,7 +60,7 @@
              Evolve Again → 下一代
 ```
 
-第一轮 Jev 不是一个大问题，而是 19 个可以并行回答的小问题。与此同时，一个低成本生成 LLM 为三份创作宪法生成紧凑的递归 Page AST，而不是 HTML 或 Tailwind 字符串。第二轮 Critic 一次请求并行回答 12 个评分问题（3 个方案 × 4 个维度）。权重计算、Schema 校验、候选排序、树变异和代际状态全部由 Go 代码掌握，因此过程可解释、可测试，也不会因为模型自由发挥而破坏协议。
+第一轮 Jev 不是一个大问题，而是 19 个可以并行回答的小问题。Go 代码随后根据这些结构化判断，为三份创作宪法各自产生 48 棵递归 Page AST，再按结构多样性、宇宙目标和兼容性选出胜者。第二轮 Critic 一次请求并行回答 12 个评分问题（3 个方案 × 4 个维度）。候选生成、约束、排序、树变异和代际状态全部由代码掌握；项目不调用任何生成式 LLM。
 
 ## 三个设计宇宙
 
@@ -117,8 +121,8 @@ Wails 窗口适合成为紧凑的导演台：输入方向、观看 19 个节点�
 - **Go + Wails v2**：桌面生命周期、Jev 调用、编排、预览服务器与 SSE。
 - **React + TypeScript + Vite**：桌面导演台。
 - **TypeSafe System One / Jev 1.13**：自然语言到类型化判断、概率和 Critic 评分。
-- **OpenAI Responses API**：用严格 JSON Schema 生成三棵紧凑 Page AST；默认 `gpt-5.6-luna`，可配置其他支持 Structured Outputs 的模型。
-- **递归页面语法**：安全的 Section、Layout、Visual、Item 和 Children 节点；模型不直接输出代码。
+- **程序化 AST 搜索**：每轮在本地生成 144 个候选，通过适配度和差异性竞争出三棵 Page AST。
+- **递归页面语法**：安全的 Section、Layout、Visual、Item 和 Children 节点；Jev 不生成文案或代码。
 - **原生 HTML/CSS/JS 舞台**：递归解释 AST 并实时渲染，避免把任意模型代码带进浏览器。
 
 关键文件：
@@ -127,7 +131,7 @@ Wails 窗口适合成为紧凑的导演台：输入方向、观看 19 个节点�
 | --- | --- |
 | `app.go` | Wails API、生成流程、SSE 阶段事件、连续进化 |
 | `jev.go` | 19 路判断、Critic、语义世界、候选构建与突变 |
-| `generator.go` | 生成模型调用、严格 Schema、AST 清洗、本地语法与树突变 |
+| `generator.go` | 程序化候选生成、语法约束、适配度搜索与树突变 |
 | `types.go` | Decision、PageSpec、Scorecard、DesignResult 等协议 |
 | `preview_page.go` | 浏览器舞台和三种页面结构 |
 | `ast_preview.go` | 递归 Page AST 的浏览器解释器与视觉原子 |
@@ -158,15 +162,7 @@ export TYPESAFE_API_KEY="your_key_here"
 TYPESAFE_API_KEY=your_key_here
 ```
 
-如果要启用真正的 LLM 页面生成，再加入 OpenAI API Key：
-
-```dotenv
-OPENAI_API_KEY=your_key_here
-# 可选：默认是 gpt-5.6-luna
-GENERATOR_MODEL=gpt-5.6-luna
-```
-
-也可以使用 `GENERATOR_API_KEY` 和 `GENERATOR_BASE_URL` 接入兼容 OpenAI Responses API 的服务。没有生成模型 Key 时，应用会使用同一套 AST 协议和本地页面语法降级，仍然不会退回旧的三模板渲染。
+除此之外不需要 OpenAI Key 或其他生成模型配置。没有 TypeSafe Key 时，应用会用本地关键词判断继续运行程序化 AST 搜索，方便离线演示。
 
 运行：
 
@@ -197,8 +193,8 @@ build/bin/ForgeDesktop.app
 
 - 19 个判断节点与真实 Jev 请求一致；
 - 三个宇宙由不同 AST Section 序列构成，并包含嵌套组合；
-- 生成模型使用严格 JSON Schema，非法节点会被清洗或回退；
-- Jev 和生成 LLM 并行运行，避免串行叠加延迟；
+- 每轮本地搜索 144 个 AST 候选，同一提示可复现，不同提示会改变结构；
+- Jev 只提供类型化判断与评分，生成、约束和变异完全由 Go 代码执行；
 - Critic 四维评分、弱项替换、胜者接管有效；
 - Enter 编译，Shift+Enter 换行；
 - 中文提示能够切换完整语义世界；

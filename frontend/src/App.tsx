@@ -10,7 +10,7 @@ type DesignResult = { mode: string; latencyMs: number; prompt: string; generatio
 
 const DEFAULT_PROMPT = "为一款实时 AI 数据分析产品做主页。面向开发者，深色、克制、有速度感，重点突出实时分析。";
 const QUICK = ["做得像来自未来，但必须可信", "锁住技术感，增加人类情绪", "极端原创，并强化申请内测"];
-const PHASES = ["Parallel intent", "LLM page AST", "3 universes", "Critic scoring", "Gen 02 mutation"];
+const PHASES = ["Jev parallel intent", "144 AST candidates", "Constraint tournament", "Critic scoring", "Gen 02 mutation"];
 
 function App() {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -19,7 +19,6 @@ function App() {
   const [generating, setGenerating] = useState(false);
   const [stageURL, setStageURL] = useState("");
   const [hasKey, setHasKey] = useState(false);
-  const [hasGeneratorKey, setHasGeneratorKey] = useState(false);
   const [autoApply, setAutoApply] = useState(false);
   const [stageOpened, setStageOpened] = useState(false);
   const [phase, setPhase] = useState(0);
@@ -30,7 +29,6 @@ function App() {
       setResult(state.result as DesignResult);
       setStageURL(state.previewURL);
       setHasKey(state.hasAPIKey);
-      setHasGeneratorKey(state.hasGeneratorKey);
       return OpenStage();
     }).then(() => setStageOpened(true)).catch(console.error);
   }, []);
@@ -73,7 +71,7 @@ function App() {
     <main className="director">
       <header className="titlebar">
         <div className="brand"><span><Sparkles size={14} /></span><strong>Forge</strong><small>LIVE UI DIRECTOR</small></div>
-        <div className="engine"><i className={result?.mode?.includes("jev") ? "jev" : ""} />{result?.mode?.includes("llm") ? `JEV + ${result.generator}` : hasGeneratorKey ? "GENERATOR READY" : hasKey ? "JEV + LOCAL AST" : "LOCAL AST"}</div>
+        <div className="engine"><i className={result?.mode?.includes("jev") ? "jev" : ""} />{hasKey ? "JEV + PROCEDURAL AST" : "LOCAL PROCEDURAL AST"}</div>
       </header>
 
       <section className="stage-strip">

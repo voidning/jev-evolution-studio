@@ -312,7 +312,6 @@ export namespace main {
 	    previewURL: string;
 	    result: DesignResult;
 	    hasAPIKey: boolean;
-	    hasGeneratorKey: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
@@ -323,7 +322,6 @@ export namespace main {
 	        this.previewURL = source["previewURL"];
 	        this.result = this.convertValues(source["result"], DesignResult);
 	        this.hasAPIKey = source["hasAPIKey"];
-	        this.hasGeneratorKey = source["hasGeneratorKey"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
