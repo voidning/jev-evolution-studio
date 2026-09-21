@@ -1,0 +1,10 @@
+build/bin
+node_modules
+frontend/dist
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.DS_Store
