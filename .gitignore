@@ -8,3 +8,9 @@ frontend/dist
 **/.env.*
 !**/.env.example
 .DS_Store
+
+work/
+editable-demo/dist/
+
+tailwind-demo/dist/
+**/.jev-check-*/

@@ -1,135 +1,233 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronRight, CircleDot, Command, ExternalLink, Gauge, GitBranch, Layers3, Loader2, MonitorUp, Orbit, Radio, RefreshCw, Send, Sparkles, Trophy, Zap } from "lucide-react";
-import { Evolve, Generate, GetState, OpenStage, SelectConcept } from "../wailsjs/go/main/App";
+import { useEffect, useRef, useState } from "react";
+import { call, isNative, type State } from "./api";
+import ProjectPanel from "./ProjectPanel";
+import DiffPanel from "./DiffPanel";
 
-type Decision = { label: string; value: string; confidence: number; group: string; distribution?: Record<string, number> };
-type Scorecard = { originality: number; clarity: number; trust: number; conversion: number; composite: number };
-type Blueprint = { version: number; id: string; creativeDirection: string; root: unknown };
-type PageSpec = { id: string; name: string; descriptor: string; strategy: string; generation: number; mutation: string; theme: string; hero: string; visual: string; features: string; density: string; navigation: string; motion: string; story: string; cta: string; world: string; brand: string; eyebrow: string; showLogos: boolean; showPricing: boolean; showStats: boolean; title: string; description: string; decisions: Decision[]; scores: Scorecard; blueprint: Blueprint };
-type DesignResult = { mode: string; latencyMs: number; prompt: string; generation: number; winner: number; swarmSize: number; mutationLog: string[]; specs: PageSpec[]; generator: string; astSource: string; candidateCount: number; designSpace: string };
-
-const DEFAULT_PROMPT = "为一款实时 AI 数据分析产品做主页。面向开发者，深色、克制、有速度感，重点突出实时分析。";
-const QUICK = ["做得像来自未来，但必须可信", "锁住技术感，增加人类情绪", "极端原创，并强化申请内测"];
-const PHASES = ["Jev parallel intent", "6,144 fresh ASTs", "Diversity tournament", "Critic scoring", "Gen 02 mutation"];
-
-function App() {
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
-  const [result, setResult] = useState<DesignResult | null>(null);
-  const [active, setActive] = useState(0);
-  const [generating, setGenerating] = useState(false);
-  const [stageURL, setStageURL] = useState("");
-  const [hasKey, setHasKey] = useState(false);
-  const [autoApply, setAutoApply] = useState(false);
-  const [stageOpened, setStageOpened] = useState(false);
-  const [phase, setPhase] = useState(0);
-  const lastGenerated = useRef("");
-
+export default function App() {
+  const [state, setState] = useState<State | null>(null),
+    [prompt, setPrompt] = useState(""),
+    [error, setError] = useState(""),
+    [working, setWorking] = useState(false);
+  const composing = useRef(false);
   useEffect(() => {
-    GetState().then((state) => {
-      setResult(state.result as DesignResult);
-      setStageURL(state.previewURL);
-      setHasKey(state.hasAPIKey);
-      return OpenStage();
-    }).then(() => setStageOpened(true)).catch(console.error);
+    let active = true;
+    let busy = false;
+    const poll = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const s = await call("state");
+        if (active) setState(s);
+      } catch (e) {
+        if (active) setError(String(e));
+      } finally {
+        busy = false;
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 300);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, []);
-
-  useEffect(() => {
-    if (!autoApply || prompt.trim().length < 3 || prompt === lastGenerated.current) return;
-    const timer = window.setTimeout(() => void runGenerate(prompt), 700);
-    return () => window.clearTimeout(timer);
-  }, [prompt, autoApply]);
-
-  async function runGenerate(value: string) {
-    const clean = value.trim();
-    if (!clean || generating) return;
-    lastGenerated.current = clean;
-    setGenerating(true);
-    setPhase(0);
-    const choreography = window.setInterval(() => setPhase((value) => Math.min(value + 1, PHASES.length - 1)), 620);
+  async function action(name: string, payload: Record<string, unknown> = {}) {
+    setWorking(true);
+    setError("");
     try {
-      const next = await Generate(clean) as DesignResult;
-      setResult(next);
-      setActive(next.winner ?? 0);
-    } finally { window.clearInterval(choreography); setGenerating(false); setPhase(0); }
+      const s = await call(name, payload);
+      setState(s);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWorking(false);
+    }
   }
-
-  function submit(event: FormEvent) { event.preventDefault(); void runGenerate(prompt); }
-  async function choose(index: number) { setActive(index); await SelectConcept(index); }
-  async function openStage() { await OpenStage(); setStageOpened(true); }
-  async function evolveAgain() {
-    if (generating) return;
-    setGenerating(true); setPhase(3);
-    try { const next = await Evolve() as DesignResult; setResult(next); setActive(next.winner ?? 0); }
-    finally { setGenerating(false); setPhase(0); }
+  async function preview() {
+    setWorking(true);
+    setError("");
+    try {
+      const s = await call("start");
+      setState(s);
+      if (isNative()) await call<string>("stage");
+      else window.open(s.previewURL, "jev-preview");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWorking(false);
+    }
   }
-
-  const spec = result?.specs?.[active];
-  const groups = useMemo(() => ["Intent", "Experience", "Visual", "Signals"].map((name) => ({ name, items: spec?.decisions.filter((item) => item.group === name) ?? [] })), [spec]);
-  const safeURL = stageURL ? stageURL.replace(/\?token=.*/, "") : "Starting local stage…";
-
+  const busy = working || !!state?.busy;
+  const apply = () => {
+    if (!busy && state?.selected && prompt.trim())
+      void action("apply", {
+        prompt,
+        session: state.session,
+        targetId: state.selected.id,
+      });
+  };
+  const selected = state?.selected;
   return (
-    <main className="director">
-      <header className="titlebar">
-        <div className="brand"><span><Sparkles size={14} /></span><strong>Forge</strong><small>LIVE UI DIRECTOR</small></div>
-        <div className="engine"><i className={result?.mode?.includes("jev") ? "jev" : ""} />{hasKey ? "JEV + PROCEDURAL AST" : "LOCAL PROCEDURAL AST"}</div>
+    <main className="editor">
+      <header className="app-header">
+        <div>
+          <h1 className="wordmark">
+            <span className="logo">j.</span>Jev{" "}
+            <span className="product">网页编辑器</span>
+          </h1>
+          <p>点击网页上的元素，说出修改，代码立即同步。</p>
+        </div>
+        <span className="mode">
+          {state?.hasAPIKey ? "JEV 意图判断" : "离线规则模式"}
+        </span>
       </header>
-
-      <section className="stage-strip">
-        <div className="stage-icon"><MonitorUp size={17} /></div>
-        <div><small>LIVE BROWSER STAGE</small><strong>{safeURL}</strong></div>
-        <span className={stageOpened ? "connected" : ""}><Radio size={11} /> {stageOpened ? "CONNECTED" : "WAITING"}</span>
-        <button onClick={openStage}><ExternalLink size={13} /> Open</button>
-      </section>
-
-      <section className="prompt-section">
-        <div className="section-heading"><span><b>01</b> Design direction</span><label className="auto"><input type="checkbox" checked={autoApply} onChange={(e) => setAutoApply(e.target.checked)} /><i /> AUTO APPLY</label></div>
-        <form onSubmit={submit} className="prompt-card">
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void runGenerate(prompt); } }} aria-label="Design prompt" />
-          <div className="prompt-actions"><span><Command size={11} /> ENTER COMPILE · SHIFT+ENTER LINE</span><button disabled={generating} aria-label="Compile design">{generating ? <Loader2 className="spin" size={16} /> : <Send size={15} />}</button></div>
-        </form>
-        <div className="quick-row">{QUICK.map((item) => <button key={item} onClick={() => { setPrompt(item); void runGenerate(item); }}>{item}<ArrowRight size={10} /></button>)}</div>
-        <div className={`choreography ${generating ? "active" : ""}`}>{PHASES.map((item, index) => <div key={item} className={index < phase ? "done" : index === phase ? "running" : ""}><span>{index < phase ? <Check size={9} /> : index === phase ? <Loader2 size={9} className="spin" /> : index + 1}</span>{item}</div>)}</div>
-      </section>
-
-      <section className="concept-section">
-        <div className="section-heading"><span><b>02</b> Sample tournament</span><small>{generating ? "EVOLVING…" : `3 WINNERS / ${result?.candidateCount?.toLocaleString() ?? 0} SAMPLED`}</small></div>
-        <div className="concept-grid">
-          {result?.specs.map((item, index) => (
-            <button key={item.id} className={`concept ${active === index ? "active" : ""}`} onClick={() => void choose(index)}>
-              <span className={`swatch ${item.theme}`}><b>{String.fromCharCode(65 + index)}</b><i /></span>
-              <div><strong>{item.blueprint.creativeDirection.split(" · ")[0]}</strong><small>{item.blueprint.creativeDirection.split(" · ")[1] ?? item.strategy} · {item.scores.composite || "—"}</small></div>
-              {result?.winner === index ? <Trophy size={12} /> : active === index ? <Check size={13} /> : <ChevronRight size={13} />}
-            </button>
-          ))}
-        </div>
-        {spec && <div className="scoreboard">{(["originality", "clarity", "trust", "conversion"] as const).map((key) => <div key={key}><span>{key}</span><i><b style={{ width: `${spec.scores[key] || 0}%` }} /></i><strong>{spec.scores[key] || "—"}</strong></div>)}</div>}
-      </section>
-
-      <section className="graph-section">
-        <div className="section-heading"><span><b>03</b> Decision swarm</span><small>{result?.swarmSize ?? spec?.decisions.length ?? 0} PARALLEL</small></div>
-        <div className="source"><Zap size={13} /><span>Natural-language intent</span><i /><em>JEV FAN-OUT</em></div>
-        <div className={`graph ${generating ? "resolving" : ""}`}>
-          {groups.map((group, groupIndex) => (
-            <div className="group" key={group.name}>
-              <div className="group-name"><span>0{groupIndex + 1}</span>{group.name}</div>
-              <div className="nodes">{group.items.map((node, nodeIndex) => <article className="node" key={`${group.name}-${node.label}-${nodeIndex}`}><div><small>{node.label}</small><strong>{node.value}</strong><i><b style={{ width: `${Math.round(node.confidence * 100)}%` }} /></i></div><span>{Math.round(node.confidence * 100)}</span></article>)}</div>
+      <ProjectPanel
+        state={state}
+        busy={busy}
+        action={action}
+        preview={preview}
+      />
+      <div className="workspace">
+        <div className="edit-column">
+          <section className="panel">
+            <div className="section-title">
+              <h2>
+                01 <span>选择元素</span>
+              </h2>
+              <button
+                className={state?.selecting ? "active small" : "small"}
+                disabled={!state?.connected}
+                onClick={() =>
+                  void call("select", { on: !state?.selecting })
+                    .then(setState)
+                    .catch((e) => setError(String(e)))
+                }
+              >
+                {state?.selecting ? "选择模式开启" : "开启选择模式"}
+              </button>
             </div>
-          ))}
+            {selected ? (
+              <div className="selection">
+                <strong>〈{selected.tag}〉</strong>
+                <code>{selected.id}</code>
+                <span>
+                  {selected.source}:{selected.line} · {selected.classKind || "CSS"}
+                </span>
+                <div className="style-summary">
+                  {["font-size", "display", "gap", "padding-top"].map((p) => (
+                    <span key={p}>
+                      {p} <b>{selected.styles[p] || "—"}</b>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="empty">
+                在预览中点击标题、卡片组或按钮。
+                <small>选择时会阻止页面原点击行为，按 Esc 退出。</small>
+              </div>
+            )}
+          </section>
+          <section className="panel">
+            <div className="section-title">
+              <h2>
+                02 <span>描述修改</span>
+              </h2>
+              <span className="hint">Enter 应用</span>
+            </div>
+            <label className="sr-only" htmlFor="edit-prompt">
+              自然语言修改
+            </label>
+            <textarea
+              id="edit-prompt"
+              value={prompt}
+              placeholder="例如：这个标题再大一点"
+              onChange={(e) => setPrompt(e.target.value)}
+              onCompositionStart={() => (composing.current = true)}
+              onCompositionEnd={() => (composing.current = false)}
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing &&
+                  !composing.current &&
+                  e.keyCode !== 229
+                ) {
+                  e.preventDefault();
+                  apply();
+                }
+              }}
+            />
+            <div className="command-examples">
+              {[
+                "这个标题再大一点",
+                "卡片在桌面端改成三列，手机端保持一列",
+                "这里更紧凑",
+                "让这个按钮更突出",
+              ].map((text) => (
+                <button key={text} onClick={() => setPrompt(text)}>
+                  {text}
+                </button>
+              ))}
+            </div>
+            <div className="apply-row">
+              <span>Shift + Enter 换行</span>
+              <button
+                className="primary"
+                disabled={
+                  busy ||
+                  !selected ||
+                  !prompt.trim() ||
+                  !!state?.pending ||
+                  !state?.browserConnected
+                }
+                onClick={apply}
+              >
+                {busy ? "处理中…" : "生成 Diff"}
+              </button>
+            </div>
+            {(error || state?.error) && (
+              <p className="error" role="alert">
+                {error || state?.error}
+              </p>
+            )}
+            {state?.pending && (
+              <p className="notice">
+                Diff 已就绪，尚未写入文件。Accept 后应用，Reject 放弃。
+              </p>
+            )}
+            <ol className="stages" aria-live="polite">
+              {state?.stages?.map((s) => (
+                <li key={s.name}>
+                  <span>
+                    {s === state.stages?.at(-1) && state.error
+                      ? "!"
+                      : state.busy && s === state.stages?.at(-1)
+                        ? "…"
+                        : "✓"}{" "}
+                    {s.name}
+                  </span>
+                  <small>{s.ms} ms</small>
+                </li>
+              ))}
+            </ol>
+          </section>
+          <details className="panel intent">
+            <summary>
+              最近一次 EditIntent <span>{state?.mode}</span>
+            </summary>
+            <pre>
+              {state?.intents?.length
+                ? JSON.stringify(state.intents, null, 2)
+                : "等待修改指令"}
+            </pre>
+          </details>
         </div>
-      </section>
-
-      <section className="evolution-section">
-        <div className="section-heading"><span><b>04</b> Recursive evolution</span><small>{result?.mutationLog?.length ?? 0} MUTATIONS</small></div>
-        <div className="evolution-card"><div className="generation"><GitBranch size={14} /><span>GEN {String(Math.max(1, (result?.generation ?? 1) - 1)).padStart(2, "0")}</span><i /><Orbit size={14} /><strong>GEN {String(result?.generation ?? 1).padStart(2, "0")}</strong></div><div className="mutations">{result?.mutationLog?.map((item) => <span key={item}>{item}</span>) ?? <span>Waiting for the first mutation cycle</span>}</div><button disabled={generating} onClick={() => void evolveAgain()}><RefreshCw size={11} className={generating ? "spin" : ""} /> EVOLVE AGAIN</button></div>
-      </section>
-
-      <footer className="statusbar">
-        <span><CircleDot size={10} /> {generating ? PHASES[phase] : "Genome synced"}</span>
-        <span><Gauge size={10} /> {result?.latencyMs ?? 0} ms</span>
-        <span><Layers3 size={10} /> {result?.candidateCount?.toLocaleString() ?? 0} sampled / {result?.designSpace ?? "—"} possible</span>
+        <DiffPanel state={state} busy={busy} action={action} />
+      </div>
+      <footer>
+        本地修改 · 可提交 Git · 单步撤销<span>React / Vite / Tailwind + CSS</span>
       </footer>
     </main>
   );
 }
-
-export default App;

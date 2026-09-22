@@ -1,227 +1,152 @@
-# Jev Evolution Studio
+# Jev 自然语言源码编辑器
 
-> 用一群快速、可组合的 Jev 判断，把一句自然语言在几秒内“编译”为三个互相竞争、可以连续进化的网页宇宙。
+选择真实 React/Vite 页面中的元素，输入自然语言，查看类型化意图和源码 Diff，**Accept 后写入文件并等待 Vite 刷新**。Reject 不写文件，Undo 恢复最近一次修改前的完整源码。Tailwind 项目修改 JSX className / AST；普通 CSS 项目继续写 `src/jev-edits.css`。
 
-这是一个 Wails 桌面应用。桌面窗口是导演台，系统浏览器是全屏舞台：用户输入一句产品描述，19 个 Jev 判断节点会并行理解意图，代码把结构化判断编译成三套明显不同的页面方案，再由第二轮 Jev Critic 评分、寻找弱点、触发突变，并让胜者实时接管浏览器。
+Jev 只在有限的 Choice / Noul 候选中判断意图，不生成或执行代码。没有 API Key 时，所有明确命令和示例场景都可离线完成。旧候选采样、Critic 和静态生成舞台已移出主程序；`web-prototype` 未改动。
 
-它不是普通的“让大模型写一段 HTML”。核心想法是：**模型只负责快速判断，代码负责组合、约束、竞争与演化。**
+## 产品理念
 
-## 为什么做这个
+**点击网页上的元素，说出修改，把可审查的变化写回真实源码。**
 
-传统 AI 网页生成通常有几个问题：
+自然语言负责表达意图，程序负责保证修改的边界。Jev 是快速、类型化的意图判断器；它只能在注册过的候选中选择，不生成 Tailwind 类、CSS、JSX 或可执行命令。明确命令先由本地规则解析，模糊语义才交给 Jev；没有 API Key 也能完成主要编辑流程。
 
-- 一次性输出，等待时间长，而且过程不可见；
-- 同一句提示得到的方案经常只是颜色不同，结构没有真正分叉；
-- 模型直接生成自由文本和代码，结果难以约束、验证和持续修改；
-- 第二次修改往往推翻第一次的设计，缺少可追踪的“进化过程”。
+我们优先追求以下体验：
 
-这个实验采取另一条路线：预先准备有限但高质量的设计原语和内容世界，把自然语言生成转换成一连串很小的、带类型的决策。Jev 的低延迟让这些判断可以并发执行；程序再像编译器一样组合结果。
+- **快且可预测**：常见操作走固定规则与执行器，不做多轮生成、候选页面采样或 Critic 进化。
+- **精确作用域**：选中的 DOM 元素必须映射到可验证的源码节点；只改指定属性、状态和断点，保留内容与业务行为。
+- **源码是结果**：修改落在项目的 JSX 或 CSS 文件中，刷新和重启后仍存在，可以正常提交 Git。
+- **先审查，再写入**：先生成内存 Patch 和真实 Diff，Accept 后才写文件；Reject 不写，Undo 恢复原始字节。
+- **边界明确**：无法可靠定位、存在结构歧义、动态表达过于复杂或置信度不足时直接说明原因，不猜测性改代码。
 
-目标体验是：用户刚按下 Enter，画面中已经有一群判断节点开始工作；随后从巨大设计空间采样出的三个胜者进入竞技场，Critic 给出四维评分，最弱基因被替换，最终胜者在同一个浏览器标签页中接管舞台。用户可以继续点击 **Evolve Again**，观察页面一代一代变化。
+第一阶段把普通 CSS 修改集中写入 `src/jev-edits.css`，先跑通选择、写回、HMR 与撤销；当前阶段在统一意图协议上增加 Tailwind 属性组和 JSX AST 执行器。保留兼容路径，逐步扩大可验证的能力，而非一次支持任意项目。
 
-## 一次生成发生了什么
+## 当前规模与成熟度
 
-```text
-自然语言方向
-      │
-      ▼
-19 个 Jev 判断并行扇出
-世界 / 目标 / 语气 / 主题 / Hero / 视觉 / 密度 / 导航 / 动效 / CTA ...
-      │
-      ▼
-类型化意图 + 三种评分透镜
-      │
-      ├──────────────┬──────────────┐
-      ▼              ▼              ▼
- Signal           Pulse           Atlas
- 清晰可用          沉浸叙事          系统可信
-      └────── 本地语法搜索 ─────────┘
-                     │
-                     ▼
-        6,144 个从空树组合的 Page AST 候选
-        理论设计空间超过 10^14 种
-        约束过滤 / 适配度计算 / 新颖度竞争
-                     │
-                     ▼
-        三棵胜出 Page AST（5–8 个 Section）
-        布局 / 视觉 / 内容 / 子节点自由组合
-      │              │              │
-      └──────────────┴──────────────┘
-                     │
-                     ▼
-      Jev Critic：原创 / 清晰 / 信任 / 转化
-                     │
-                     ▼
-          定位每个方案最弱的设计基因
-                     │
-                     ▼
-           有界突变 → 再评分 → 胜者接管
-                     │
-                     ▼
-             Evolve Again → 下一代
-```
+当前是**单用户、本机运行、显式接入项目的可用 MVP**，不是通用自然语言编程平台，也不宣称已有规模化用户或生产部署验证。当前实现保存在 `v2` 分支，仓库中 `web-prototype/` 是保留的早期原型，不属于现行桌面编辑主链路。
 
-第一轮 Jev 不是一个大问题，而是 19 个可以并行回答的小问题。Go 代码随后从空树开始组合 Section、顺序、布局、视觉、内容和递归子节点，每轮实际采样 6,144 棵 Page AST；保守计算的理论空间超过 10^14 种。三种策略只是评分透镜，不再对应固定骨架。第二轮 Critic 一次请求并行回答 12 个评分问题（3 个方案 × 4 个维度）。候选生成、约束、排序、树变异和代际状态全部由代码掌握；项目不调用任何生成式 LLM。
+| 组成 | 当前规模 |
+|---|---|
+| 桌面与服务 | 1 个 Wails 应用；Go 后端管理项目、Vite、本机通信和文件事务 |
+| 控制台 | 1 套 React + Tailwind UI，桌面与浏览器入口共用 |
+| 执行器 | 3 类：CssExecutor、TailwindExecutor、JSXExecutor |
+| 项目集成 | 1 套 Vite 插件、元素选择桥与源码 revision/指纹映射 |
+| 示例项目 | 2 个真实 React/Vite 项目：普通 CSS 和 Tailwind |
+| 编辑范围 | 视觉/布局属性修改，以及静态空容器插入注册按钮 |
+| 验证 | Go race 测试、14 项 AST 测试、2 套真实 Chrome E2E、Wails 正式构建 |
 
-## 三个设计宇宙
+本轮快照的手写源码与测试约 **4,762 行、32 个文件**：Go 生产代码 2,492 行、Go 测试 425 行、控制台 560 行、Vite/AST 集成 525 行、浏览器/AST 测试 447 行、两个 demo 源码 313 行。统计为物理行数（含空行/注释），不含依赖、锁文件、构建产物、Wails 自动绑定、配置/文档及历史 `web-prototype`；这是实现体量，不代表性能或产品成熟度。
 
-三套候选不是三个模板，而是同一个巨大组合空间经过三种目标权重筛出的三个胜者。每棵树都从零组装，Section 数量、类型、顺序、布局、视觉装置和嵌套结构均可变化：
+已实际验证换色、插入按钮、引号文案、歧义/动态类拒绝、Accept/Reject/Undo、刷新持久化、外部修改冲突保护，以及 390px/1280px 布局。已完成无历史独立验收，对比度问题修复后专项复验通过。正式 macOS Wails 包也实际完成了选择、换色、HMR 和撤销。真实 Jev API 调用仍未验证；其他操作系统、任意大型项目、自动 ID 注入、多人协作和云同步不在当前保证范围内。
 
-| 宇宙 | Hero | 核心视觉 | 内容结构 | 设计倾向 |
-| --- | --- | --- | --- | --- |
-| Signal | 信息清晰 | 可用但不常规的产品构图 | 清晰、可读、产品化 |
-| Pulse | 沉浸情绪 | 电影式互动旅程 | 戏剧性、情绪和原创性 |
-| Atlas | 系统证据 | 将运行状态变成视觉世界 | 技术可信度和系统感 |
+## 运行
 
-递归进化只修改表现较弱的基因，不会把三个宇宙重新压成同一种模板。每代都保存结构、评分、变异原因和最终胜者。
+需要 Go 1.25+、Node 20.19+ 或 22.12+、npm、Wails v2；macOS 正式构建需要 Xcode Command Line Tools。
 
-## 语义世界
-
-目前内置了六类完整内容世界：
-
-- AI / Data
-- Quantum Computing
-- Deep-ocean Exploration
-- Space Systems
-- Biotech
-- Creative Products
-
-Jev 选择语义世界，代码提供对应的品牌、标题、证据、指标、功能模块和视觉素材。例如“深海生物发光探险”会生成 Abyssal 品牌、实时下潜深度、物种信号、科研记录和深海仪表盘，而不是只把默认 SaaS 文案换成蓝色。
-
-这里刻意把“语义决策”和“页面渲染”分开：渲染器只消费合法的 `PageSpec`，不解析自由文本。
-
-## 为什么是桌面控制器 + 浏览器舞台
-
-Wails 窗口适合成为紧凑的导演台：输入方向、观看 19 个节点、比较三套方案、查看评分和触发下一代。浏览器则天然适合展示全尺寸网页，并让观众看到页面在同一个标签页中持续变化。
-
-演示时形成两个物理角色：
-
-- **桌面应用**：人在这里编辑、选择、进化；
-- **浏览器页面**：观众在这里看最终世界被实时接管。
-
-两者通过本机随机端口上的 SSE 连接。每次启动都有独立 token，预览服务只绑定 `127.0.0.1`，不会向局域网暴露。生成过程中的 tournament、critique、mutation、finale 都作为事件推送，浏览器不需要刷新。
-
-## 演示脚本
-
-推荐用这一句开始：
-
-> 为深海生物发光探险项目做主页，像进入另一个宇宙，强调实时下潜、物种发现和科研可信度，引导申请加入探险。
-
-演示顺序：
-
-1. 在桌面导演台粘贴提示并按 Enter。
-2. 指出 19 个判断节点是同时工作的，而不是一条缓慢的思维链。
-3. 观察三个宇宙进入竞技场，以及 Critic 的四维评分。
-4. 分别点击 Signal、Pulse、Atlas，展示真正不同的页面结构。
-5. 让胜者接管浏览器全屏舞台。
-6. 点击 **Evolve Again**，观察弱项、突变记录、Generation 数字和页面同步变化。
-7. 换成量子、太空或生物科技提示，证明改变的不只是配色，而是完整的语义世界。
-
-## 技术结构
-
-- **Go + Wails v2**：桌面生命周期、Jev 调用、编排、预览服务器与 SSE。
-- **React + TypeScript + Vite**：桌面导演台。
-- **TypeSafe System One / Jev 1.13**：自然语言到类型化判断、概率和 Critic 评分。
-- **组合式 AST 搜索**：理论空间超过 10^14 种；每轮本地采样 6,144 个候选，通过适配度和差异性竞争出三棵 Page AST。
-- **递归页面语法**：安全的 Section、Layout、Visual、Item 和 Children 节点；Jev 不生成文案或代码。
-- **原生 HTML/CSS/JS 舞台**：递归解释 AST 并实时渲染，避免把任意模型代码带进浏览器。
-
-关键文件：
-
-| 文件 | 职责 |
-| --- | --- |
-| `app.go` | Wails API、生成流程、SSE 阶段事件、连续进化 |
-| `jev.go` | 19 路判断、Critic、语义世界、候选构建与突变 |
-| `generator.go` | 程序化候选生成、语法约束、适配度搜索与树突变 |
-| `types.go` | Decision、PageSpec、Scorecard、DesignResult 等协议 |
-| `preview_page.go` | 浏览器舞台和三种页面结构 |
-| `ast_preview.go` | 递归 Page AST 的浏览器解释器与视觉原子 |
-| `frontend/src/App.tsx` | 桌面导演台交互 |
-| `frontend/src/evolution.css` | 竞技场与节点动画视觉系统 |
-| `app_test.go` | 回归、SSE、安全与真实 Jev 测试 |
-| `web-prototype/` | 最早的 Web 原型快照，仅作思路参考 |
-
-## 本地运行
-
-前置条件：Go、Node.js、Wails CLI。
-
-```bash
-git clone https://github.com/voidning/jev-evolution-studio.git
+```sh
+git clone --branch v2 https://github.com/voidning/jev-evolution-studio.git
 cd jev-evolution-studio
-npm --prefix frontend install
-```
-
-配置 TypeSafe Key，任选一种方式：
-
-```bash
-export TYPESAFE_API_KEY="your_key_here"
-```
-
-或者在项目根目录创建 `.env.local`：
-
-```dotenv
-TYPESAFE_API_KEY=your_key_here
-```
-
-除此之外不需要 OpenAI Key 或其他生成模型配置。没有 TypeSafe Key 时，应用会用本地关键词判断继续运行程序化 AST 搜索，方便离线演示。
-
-运行：
-
-```bash
+npm ci --prefix integration
+npm ci --prefix frontend
+npm ci --prefix editable-demo
+npm ci --prefix tailwind-demo
+npm run build --prefix integration
 wails dev
 ```
 
-桌面控制器会自动打开浏览器舞台。Key 只由 Go 后端读取，不会发送给 React 前端或浏览器页面。所有 `.env` 文件都被 Git 忽略。
+打开克隆目录中 `tailwind-demo` 的绝对路径（或普通 CSS 的 `editable-demo`），点击“打开 / 启动预览”。在浏览器预览中点击元素，回控制台输入修改。Enter 生成 Diff，Shift+Enter 换行；中文输入法选字不会提交。选择模式捕获点击，Escape 退出。
 
-## 构建与验证
-
-```bash
-go test -count=1 ./...
-npm --prefix frontend run build
+```sh
 wails build
-RUN_LIVE_JEV=1 go test -run '^TestJevLive$' -v -count=1
+open build/bin/ForgeDesktop.app
 ```
 
-macOS 正式应用输出到：
+Wails 构建会先更新内嵌的 AST 执行器，再构建前端。手动 Go 构建须先构建这两项：
 
-```text
-build/bin/ForgeDesktop.app
+```sh
+npm run build --prefix integration
+npm run build --prefix frontend
+mkdir -p work
+go build -o work/jev-editor .
+JEV_OFFLINE=1 ./work/jev-editor -headless -project "$PWD/tailwind-demo"
 ```
 
-`wails dev -browser` 会额外启用 Wails 自带的浏览器调试桥；它不是正式产品链路。正式应用只启动桌面 WebView 和带 token 的本地浏览器舞台。
+终端输出本机 Console / Preview 链接。首次认证后 URL 中的临时 token 被清除；它不是 TypeSafe Key。应用只停止自己启动的 Vite，不停止连接的已有服务。不自动安装项目依赖。
 
-## 已验证的行为
+## 支持的操作
 
-- 19 个判断节点与真实 Jev 请求一致；
-- 三个宇宙由不同 AST Section 序列构成，并包含嵌套组合；
-- 每轮本地搜索 6,144 个 AST 候选，理论空间超过 10^14 种；同一提示可复现，不同提示会改变结构；
-- Jev 只提供类型化判断与评分，生成、约束和变异完全由 Go 代码执行；
-- Critic 四维评分、弱项替换、胜者接管有效；
-- Enter 编译，Shift+Enter 换行；
-- 中文提示能够切换完整语义世界；
-- SSE 在同一个浏览器标签页中更新；
-- 正式 Wails 包构建、签名和真实 Jev 测试通过；
-- API Key 不进入前端 bundle、页面 URL 或 Git。
+| 范围 | 示例 |
+|---|---|
+| 颜色（Tailwind） | 把这个按钮换成红色、文字换成白色、边框换成蓝色、背景换成 #ff3366、背景换成品牌色 |
+| 字号 / 字重 / 对齐 | 文字大一点、这个标题再大一点、字重增强、文字居中、右对齐 |
+| 间距 | 这里更紧凑、这里更宽松、padding增加、间距小一点、外边距大一点（Tailwind） |
+| 布局 | 桌面端三列、卡片在桌面端改成三列，手机端保持一列、横向排列、纵向排列、全宽、宽度narrow |
+| 外观 | 圆角小一点、圆角大一点、显示边框、让这个按钮更突出、阴影大一点（Tailwind）、透明度50%（Tailwind） |
+| 可见性 | 隐藏这个元素、恢复元素、显示为flex（Tailwind） |
+| 结构（Tailwind） | 在这个空框中间加一个按钮、在中间加一个“立即开始”按钮、在框中间加一个叫“保存”的按钮 |
 
-## 这套思路还能走多远
+Tailwind 支持 `桌面端` / `手机端`、`sm:` / `md:` / `lg:` 前缀；状态只在明确指定 `悬停时` / `hover:`、`聚焦时` / `focus:` 时编辑。基础、hover、responsive、dark 类互不混改。桌面映射 md，手机映射 max-md；示例使用 Tailwind 默认断点。自定义断点按项目 Tailwind 配置解释。普通 CSS 使用 768px 分界。
 
-当前版本证明的是“判断原语 + 程序编排”能够制造比单次生成更有生命力的界面。下一阶段可以沿几条线继续：
+可用 `父容器`、`同级元素` 选择已标注的作用域；插入只接受 selected/all。封闭语法完整匹配，未知、混合、不支持的要求整体拒绝。字号、间距采用固定刻度；任意自由数值和业务逻辑不在本版范围。
 
-1. **扩大设计语法**：继续增加 Canvas、WebGL、图表和滚动叙事原子，让组合空间从数十个节点扩展到数百个。
-2. **真实 DOM 级编辑**：用户说“第二屏更克制”，只重新判断目标节点及其依赖，而不是重做整页。
-3. **多角色 Jev 群体**：产品经理、艺术指导、转化专家、无障碍审查员分别投票，再由仲裁器合成。
-4. **分支与谱系**：保存每一代 PageSpec，允许从任意祖先进化、对比或合并两个分支。
-5. **用户偏好学习**：记录用户每次选择，让候选先验逐渐贴近个人审美，而不需要训练大模型。
-6. **自动验证闭环**：浏览器截图、布局检测、可访问性和性能指标成为新的 critic 信号。
-7. **开放组件注册表**：任何 React/Tailwind 组件都可以声明输入、约束和适用场景，进入候选池。
+## className 与结构边界
 
-最终愿景不是“AI 帮你写网页”，而是一个实时的设计进化系统：人给方向，许多小智能体做判断，代码维持世界规则，页面在眼前持续分叉、竞争和成长。
+支持字符串字面量、无插值模板、从 clsx/classnames 导入的简单调用，以及 `condition && "静态类"`。只修改匹配属性和变体的叶节点，保留无关 token。跨多个条件分支的同一属性拒绝。
 
-## 当前边界
+拒绝 `calculateClass(state)`、`styles[variant]`、CVA、spread 属性、内联 style、第三方组件内部样式和 `.map()` 的单实例编辑。不将共享实例修改伪装成单实例修改。
 
-- 语义世界目前是有限集合，未知领域会回退到最接近的世界；
-- 页面已经由递归 AST 生成，但当前视觉原子数量仍有限；
-- 进化是有界突变，不是无限递归，避免成本和视觉漂移；
-- 当前是概念验证，尚未加入项目持久化、历史树、导出代码和多人协作。
+插入按钮仅限静态空的原生 div/section/main/article/aside/header/footer。已有内容会提示“作为内容居中还是悬浮居中”的歧义，并安全拒绝。包含响应式/状态布局的空容器也拒绝，避免破坏保留约束。AST 添加 grid、单列和居中类，并生成 JSX 节点与必要 import；recast 格式化修改的 AST 节点，其他源码保持原样。
 
-这些限制是有意的：先让演示稳定、快速、可解释，再逐步扩大设计空间。
+组件注册表优先识别 `src/components/` 中命名导出的、包含原生 button 的 `Button`。唯一候选时添加或复用相对路径 import；多个候选拒绝。没有候选时生成原生 button。复杂组件、路径别名解析、variant 配置暂未支持；插入的组件不自动获得可编辑 ID，后续直接选择编辑需人工接入，或继续编辑其已标注父容器。
+
+## 接入自己的项目
+
+1. 保留整个 `integration/` 目录并安装其依赖。在项目 Vite 配置中导入 `integration/jev-vite.mjs` 的默认插件，将 `jevEditor()` 加到 plugins。
+2. 给 `src` 内 JSX/TSX 的原生元素添加唯一的字面量 `data-jev-id="src-view-hero-title"`。ID 为 1–100 个字母、数字、下划线或连字符；不能在重复渲染中复用。
+3. Tailwind 从 package.json 的依赖检测。普通 CSS 项目需创建 `src/jev-edits.css`，在应用入口最后导入，保证生产构建也包含修改。
+4. 安装项目依赖，在控制台选择项目。连接现有预览时输入 `http://127.0.0.1:端口`，并确保服务已加载插件、绑定本机。
+
+插件记录源文件、节点范围/指纹、className 来源、父节点与 revision；每次 Accept 重新验证源 revision、指纹和浏览器唯一匹配。自动 JSX ID 注入、CSS Modules、Next.js/Vue 和任意项目适配未包含。
+
+## 事务、安全和 Jev
+
+- 生成 Diff 只构造内存 Patch。Accept 保存历史、原子写入、运行项目 TypeScript（存在 tsconfig 时）及 Vite 构建，再等待发起浏览器的 HMR 回执。普通 CSS 同时检查覆盖是否实际生效。
+- Diff 从同一组 before/after 字节产生。一次一笔草稿，Accept 或 Reject 后继续；Accept 后仍可单步 Undo。未接受草稿不跨重启保存；已写入历史可重启恢复。
+- 使用 Go `os.Root`、同目录临时文件、原子替换和修改前内容比较；拒绝越界/符号链接，不覆盖无关 dirty 文件。多文件变更逐个原子替换，失败尝试回滚，不承诺跨文件/跨进程原子事务锁。
+- 构建或 HMR 失败自动恢复；若外部修改阻止恢复，保留快照并报错。历史位于 macOS `~/Library/Application Support/JevEditor/history`，权限 0600。
+- Tailwind HMR 验证加载 revision、实际类和样式可用性；不保证任意外部高优先级 CSS 的最终覆盖。因此首版面向显式接入的 Tailwind 项目。
+- 本机代理仅绑定 127.0.0.1，随机会话 token、Strict/HTTP-only Cookie、来源和会话校验。API Key 只在 Go 后端；不进入 URL、bundle、项目文件或子进程环境。
+
+明确颜色、引号文案、常见操作由本地解析器直接确定。颜色区分字面值与设计令牌；支持常见颜色词、hex、rgb/hsl/oklch、静态 Tailwind 配置与 CSS @theme 令牌。
+
+在线 Jev 路径仅补充模糊颜色语义：warm/cool/vivid/soft/darker/lighter/brand/danger；单次批量分层 Choice/Noul，候选受目标、类和令牌裁剪。低置信度、非法值、超时、API失败均拒绝模糊请求，不生成代码。模糊文字/背景色需通过本地对比度检查；未知变量色、透明背景或低于 4.5:1 时要求明确颜色，不擅自改变另一通道。此检查使用固定 Tailwind 4 色板；真实服务调用需自己的 Key，未将模拟解码测试视为线上验证。
+
+后端读取 `TYPESAFE_API_KEY`（兼容既有后端配置）。不要设置 `VITE_*` Key。控制台可强制离线，也可设置 `JEV_OFFLINE=1`。
+
+## 检查
+
+```sh
+node --test integration/source.test.mjs
+npm run build --prefix integration
+go test -race ./...
+npm run build --prefix frontend
+npm run build --prefix editable-demo
+npm run build --prefix tailwind-demo
+go build -o work/jev-editor .
+node frontend/tests/editor.e2e.mjs
+node frontend/tests/tailwind.e2e.mjs
+wails build
+```
+
+浏览器测试用已安装的 Google Chrome，复制临时 demo 后走真实 UI；不修改交付示例。覆盖颜色/插入/文案/歧义/动态类 A–E、Reject、源码冲突、完整 Undo、刷新持久性和 390/1280px 溢出。普通 CSS 回归覆盖原始四条命令、隐藏恢复、Escape、输入法、样式冲突回滚和哨兵 Key。证据位于 Git 忽略的 `work/e2e`、`work/tailwind-e2e`。
+
+## 关键文件
+
+- `app.go`：Wails 接口、项目进程、本机代理、会话与浏览器通信。
+- `edit_flow.go`：草稿、Accept/Reject、校验、回滚、Undo。
+- `executors.go` / `patch.go`：统一执行器、构建检查、受限原子写入、历史和 diff。
+- `source_intent.go` / `intent.go` / `operations.go` / `color_contrast.go`：注册表、离线解析、Jev 类型边界、颜色校验。
+- `integration/source-core.mjs`：AST 定位、组件与令牌注册、Tailwind 属性组、JSX Patch。
+- `integration/jev-vite.mjs` / `selection-bridge.js`：源码映射、选择、HMR 回执。
+- `frontend/src/`：Tailwind 控制台，桌面与浏览器共用。
+- `tailwind-demo/` / `editable-demo/`：真实可运行的两种示例。
+- `editor_test.go` / `integration/source.test.mjs` / `frontend/tests/`：后端、AST 和真实浏览器测试。

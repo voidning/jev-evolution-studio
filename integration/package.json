@@ -1,0 +1,1 @@
+{"name":"jev-source-tools","private":true,"type":"module","scripts":{"build":"esbuild source-executor.mjs --bundle --platform=node --format=cjs --outfile=dist/source-executor.cjs"},"dependencies":{"@babel/parser":"^7.28.0","magic-string":"^0.30.21","recast":"^0.23.11","tailwind-merge":"^3.3.1"},"devDependencies":{"esbuild":"^0.25.0"}}
