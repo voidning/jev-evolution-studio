@@ -22,15 +22,11 @@ func TestFallbackBlueprintsAreRecursiveAndStructurallyDistinct(t *testing.T) {
 	sequences := map[string]bool{}
 	foundNested := false
 	for _, blueprint := range blueprints {
-		if len(blueprint.Sections) < 5 {
-			t.Fatalf("blueprint %s is too shallow: %d sections", blueprint.ID, len(blueprint.Sections))
+		if topFrameCount(blueprint) < 5 {
+			t.Fatalf("blueprint %s is too shallow: %d frames", blueprint.ID, topFrameCount(blueprint))
 		}
-		parts := make([]string, 0, len(blueprint.Sections))
-		for _, section := range blueprint.Sections {
-			parts = append(parts, section.Kind+"/"+section.Layout+"/"+section.Visual)
-			foundNested = foundNested || len(section.Children) > 0
-		}
-		signature := strings.Join(parts, "|")
+		signature := blueprintSignature(blueprint)
+		foundNested = foundNested || inspectBlueprint(blueprint).maxDepth >= 3
 		if sequences[signature] {
 			t.Fatalf("duplicate AST sequence: %s", signature)
 		}
@@ -41,9 +37,9 @@ func TestFallbackBlueprintsAreRecursiveAndStructurallyDistinct(t *testing.T) {
 	}
 	result = applyBlueprints(result, blueprints, "local-grammar", "local-grammar")
 	result.Specs[0].Scores = Scorecard{Originality: 10, Clarity: 90, Trust: 90, Conversion: 90}
-	before := len(result.Specs[0].Blueprint.Sections)
+	before := topFrameCount(result.Specs[0].Blueprint)
 	result = EvolveConcepts(result)
-	if len(result.Specs[0].Blueprint.Sections) <= before {
+	if topFrameCount(result.Specs[0].Blueprint) <= before {
 		t.Fatal("originality mutation did not grow the page AST")
 	}
 }
@@ -59,9 +55,7 @@ func TestProceduralSearchIsDeterministicAndPromptSensitive(t *testing.T) {
 	signature := func(blueprints []PageBlueprint) string {
 		parts := []string{}
 		for _, blueprint := range blueprints {
-			for _, section := range blueprint.Sections {
-				parts = append(parts, section.Kind+"/"+section.Layout+"/"+section.Visual)
-			}
+			parts = append(parts, blueprintSignature(blueprint))
 		}
 		return strings.Join(parts, "|")
 	}
@@ -72,7 +66,7 @@ func TestProceduralSearchIsDeterministicAndPromptSensitive(t *testing.T) {
 		t.Fatal("different prompts collapsed to the same AST")
 	}
 	for _, blueprint := range first {
-		if len(blueprint.Sections) < 5 || !strings.Contains(blueprint.CreativeDirection, "genome") {
+		if topFrameCount(blueprint) < 5 || !strings.Contains(blueprint.CreativeDirection, "genome") {
 			t.Fatalf("procedural winner is incomplete: %+v", blueprint)
 		}
 	}
@@ -88,11 +82,7 @@ func TestCompositionalGrammarDoesNotCollapseToThreeSkeletons(t *testing.T) {
 		seed := CompileConcepts(LocalAnswers(prompt), "local", 0)
 		blueprints := GenerateBlueprints(prompt, seed.Specs)
 		for _, blueprint := range blueprints {
-			parts := make([]string, 0, len(blueprint.Sections))
-			for _, section := range blueprint.Sections {
-				parts = append(parts, section.Kind+"/"+section.Layout+"/"+section.Visual+fmt.Sprint(len(section.Children)))
-			}
-			signatures[strings.Join(parts, "|")] = true
+			signatures[blueprintSignature(blueprint)] = true
 		}
 	}
 	if len(signatures) < 20 {
@@ -105,10 +95,57 @@ func TestTournamentWinnersSpanPageLengths(t *testing.T) {
 	blueprints := GenerateBlueprints("cinematic live research system", seed.Specs)
 	lengths := map[int]bool{}
 	for _, blueprint := range blueprints {
-		lengths[len(blueprint.Sections)] = true
+		lengths[topFrameCount(blueprint)] = true
 	}
-	if len(lengths) < 3 || !lengths[5] || !lengths[6] || !lengths[8] {
-		t.Fatalf("expected density lenses to select 5, 6 and 8 section pages, got %v", lengths)
+	if len(lengths) < 3 || !lengths[5] || !lengths[6] || !lengths[7] {
+		t.Fatalf("expected continuous lenses to select 5, 6 and 7 frame pages, got %v", lengths)
+	}
+}
+
+func topFrameCount(blueprint PageBlueprint) int {
+	count := 0
+	for _, node := range blueprint.Root.Children {
+		if node.Primitive == "frame" {
+			count++
+		}
+	}
+	return count
+}
+
+func blueprintSignature(blueprint PageBlueprint) string {
+	parts := []string{}
+	var walk func(DesignNode, int)
+	walk = func(node DesignNode, depth int) {
+		parts = append(parts, fmt.Sprintf("%d:%s/%s/%d/%s/%s", depth, node.Primitive, node.Role, node.Layout.Columns, node.Visual.Kind, node.Layout.Align))
+		for _, child := range node.Children {
+			walk(child, depth+1)
+		}
+	}
+	walk(blueprint.Root, 0)
+	return strings.Join(parts, "|")
+}
+
+func TestPrimitiveRegistryConstrainsEveryGeneratedNode(t *testing.T) {
+	if len(primitiveRegistry) < 10 {
+		t.Fatalf("primitive registry is unexpectedly small: %d", len(primitiveRegistry))
+	}
+	result := CompileConcepts(LocalAnswers("cinematic ocean research"), "local", 0)
+	for _, blueprint := range GenerateBlueprints("cinematic ocean research", result.Specs) {
+		stats := inspectBlueprint(blueprint)
+		if stats.invalid != 0 {
+			t.Fatalf("blueprint %s violates primitive registry: %+v", blueprint.ID, stats)
+		}
+		if stats.maxDepth < 3 {
+			t.Fatalf("blueprint %s is not meaningfully recursive", blueprint.ID)
+		}
+	}
+}
+
+func BenchmarkGenerateBlueprints(b *testing.B) {
+	seed := CompileConcepts(LocalAnswers("cinematic ocean research"), "local", 0)
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		GenerateBlueprints("cinematic ocean research", seed.Specs)
 	}
 }
 
@@ -189,7 +226,7 @@ func TestPreviewServerStreamsConceptChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(page), "renderGenerated") || !strings.Contains(string(page), "GENERATED PAGE AST") {
+	if !strings.Contains(string(page), "renderGenerated") || !strings.Contains(string(page), "GENERATED DESIGN AST") {
 		t.Fatal("preview did not include the recursive AST renderer")
 	}
 

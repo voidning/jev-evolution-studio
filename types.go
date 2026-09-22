@@ -37,25 +37,76 @@ type BlueprintItem struct {
 	Value string `json:"value"`
 }
 
-// SectionNode is the recursive page grammar. It deliberately describes intent
-// instead of HTML or Tailwind classes, keeping generated output safe and valid.
-type SectionNode struct {
-	ID       string          `json:"id"`
-	Kind     string          `json:"kind"`
-	Layout   string          `json:"layout"`
-	Visual   string          `json:"visual"`
-	Eyebrow  string          `json:"eyebrow"`
-	Headline string          `json:"headline"`
-	Body     string          `json:"body"`
-	Items    []BlueprintItem `json:"items"`
-	Children []SectionNode   `json:"children"`
+// DesignControls are continuous intent signals. Jev chooses these qualities;
+// the compiler decides which concrete primitives can express them.
+type DesignControls struct {
+	SpatialTension     float64 `json:"spatialTension"`
+	VisualAbstraction  float64 `json:"visualAbstraction"`
+	InformationDensity float64 `json:"informationDensity"`
+	NarrativeDepth     float64 `json:"narrativeDepth"`
+	TrustPriority      float64 `json:"trustPriority"`
+	MotionEnergy       float64 `json:"motionEnergy"`
+	Symmetry           float64 `json:"symmetry"`
+}
+
+type LayoutSpec struct {
+	Axis      string `json:"axis,omitempty"`
+	Columns   int    `json:"columns,omitempty"`
+	Gap       string `json:"gap,omitempty"`
+	Span      int    `json:"span,omitempty"`
+	Align     string `json:"align,omitempty"`
+	MinHeight string `json:"minHeight,omitempty"`
+	Inset     string `json:"inset,omitempty"`
+	Reverse   bool   `json:"reverse,omitempty"`
+}
+
+type StyleSpec struct {
+	Surface  string `json:"surface,omitempty"`
+	Scale    string `json:"scale,omitempty"`
+	Emphasis string `json:"emphasis,omitempty"`
+	Shape    string `json:"shape,omitempty"`
+}
+
+type VisualSpec struct {
+	Kind      string  `json:"kind,omitempty"`
+	Position  string  `json:"position,omitempty"`
+	Intensity float64 `json:"intensity,omitempty"`
+}
+
+type InteractionSpec struct {
+	Trigger  string  `json:"trigger,omitempty"`
+	Motion   string  `json:"motion,omitempty"`
+	Strength float64 `json:"strength,omitempty"`
+}
+
+type NodeContent struct {
+	Eyebrow  string          `json:"eyebrow,omitempty"`
+	Headline string          `json:"headline,omitempty"`
+	Body     string          `json:"body,omitempty"`
+	Value    string          `json:"value,omitempty"`
+	Items    []BlueprintItem `json:"items,omitempty"`
+}
+
+// DesignNode is a safe, recursive design program. Primitive is deliberately
+// lower-level than a website section: layout, content, visual and interaction
+// can be recombined without introducing arbitrary HTML or JavaScript.
+type DesignNode struct {
+	ID          string          `json:"id"`
+	Primitive   string          `json:"primitive"`
+	Role        string          `json:"role,omitempty"`
+	Layout      LayoutSpec      `json:"layout,omitempty"`
+	Style       StyleSpec       `json:"style,omitempty"`
+	Visual      VisualSpec      `json:"visual,omitempty"`
+	Interaction InteractionSpec `json:"interaction,omitempty"`
+	Content     NodeContent     `json:"content,omitempty"`
+	Children    []DesignNode    `json:"children,omitempty"`
 }
 
 type PageBlueprint struct {
-	Version           int           `json:"version"`
-	ID                string        `json:"id"`
-	CreativeDirection string        `json:"creativeDirection"`
-	Sections          []SectionNode `json:"sections"`
+	Version           int        `json:"version"`
+	ID                string     `json:"id"`
+	CreativeDirection string     `json:"creativeDirection"`
+	Root              DesignNode `json:"root"`
 }
 
 type PageSpec struct {
@@ -88,6 +139,7 @@ type PageSpec struct {
 	Description     string           `json:"description"`
 	Decisions       []Decision       `json:"decisions"`
 	Scores          Scorecard        `json:"scores"`
+	Controls        DesignControls   `json:"controls"`
 	Blueprint       PageBlueprint    `json:"blueprint"`
 }
 

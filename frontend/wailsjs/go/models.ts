@@ -18,32 +18,146 @@ export namespace main {
 	        this.value = source["value"];
 	    }
 	}
-	export class SectionNode {
-	    id: string;
-	    kind: string;
-	    layout: string;
-	    visual: string;
-	    eyebrow: string;
-	    headline: string;
-	    body: string;
-	    items: BlueprintItem[];
-	    children: SectionNode[];
+	export class NodeContent {
+	    eyebrow?: string;
+	    headline?: string;
+	    body?: string;
+	    value?: string;
+	    items?: BlueprintItem[];
 	
 	    static createFrom(source: any = {}) {
-	        return new SectionNode(source);
+	        return new NodeContent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eyebrow = source["eyebrow"];
+	        this.headline = source["headline"];
+	        this.body = source["body"];
+	        this.value = source["value"];
+	        this.items = this.convertValues(source["items"], BlueprintItem);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class InteractionSpec {
+	    trigger?: string;
+	    motion?: string;
+	    strength?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new InteractionSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.trigger = source["trigger"];
+	        this.motion = source["motion"];
+	        this.strength = source["strength"];
+	    }
+	}
+	export class VisualSpec {
+	    kind?: string;
+	    position?: string;
+	    intensity?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new VisualSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.position = source["position"];
+	        this.intensity = source["intensity"];
+	    }
+	}
+	export class StyleSpec {
+	    surface?: string;
+	    scale?: string;
+	    emphasis?: string;
+	    shape?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StyleSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.surface = source["surface"];
+	        this.scale = source["scale"];
+	        this.emphasis = source["emphasis"];
+	        this.shape = source["shape"];
+	    }
+	}
+	export class LayoutSpec {
+	    axis?: string;
+	    columns?: number;
+	    gap?: string;
+	    span?: number;
+	    align?: string;
+	    minHeight?: string;
+	    inset?: string;
+	    reverse?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new LayoutSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.axis = source["axis"];
+	        this.columns = source["columns"];
+	        this.gap = source["gap"];
+	        this.span = source["span"];
+	        this.align = source["align"];
+	        this.minHeight = source["minHeight"];
+	        this.inset = source["inset"];
+	        this.reverse = source["reverse"];
+	    }
+	}
+	export class DesignNode {
+	    id: string;
+	    primitive: string;
+	    role?: string;
+	    layout?: LayoutSpec;
+	    style?: StyleSpec;
+	    visual?: VisualSpec;
+	    interaction?: InteractionSpec;
+	    content?: NodeContent;
+	    children?: DesignNode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DesignNode(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.kind = source["kind"];
-	        this.layout = source["layout"];
-	        this.visual = source["visual"];
-	        this.eyebrow = source["eyebrow"];
-	        this.headline = source["headline"];
-	        this.body = source["body"];
-	        this.items = this.convertValues(source["items"], BlueprintItem);
-	        this.children = this.convertValues(source["children"], SectionNode);
+	        this.primitive = source["primitive"];
+	        this.role = source["role"];
+	        this.layout = this.convertValues(source["layout"], LayoutSpec);
+	        this.style = this.convertValues(source["style"], StyleSpec);
+	        this.visual = this.convertValues(source["visual"], VisualSpec);
+	        this.interaction = this.convertValues(source["interaction"], InteractionSpec);
+	        this.content = this.convertValues(source["content"], NodeContent);
+	        this.children = this.convertValues(source["children"], DesignNode);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -68,7 +182,7 @@ export namespace main {
 	    version: number;
 	    id: string;
 	    creativeDirection: string;
-	    sections: SectionNode[];
+	    root: DesignNode;
 	
 	    static createFrom(source: any = {}) {
 	        return new PageBlueprint(source);
@@ -79,7 +193,7 @@ export namespace main {
 	        this.version = source["version"];
 	        this.id = source["id"];
 	        this.creativeDirection = source["creativeDirection"];
-	        this.sections = this.convertValues(source["sections"], SectionNode);
+	        this.root = this.convertValues(source["root"], DesignNode);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -99,6 +213,30 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class DesignControls {
+	    spatialTension: number;
+	    visualAbstraction: number;
+	    informationDensity: number;
+	    narrativeDepth: number;
+	    trustPriority: number;
+	    motionEnergy: number;
+	    symmetry: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DesignControls(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.spatialTension = source["spatialTension"];
+	        this.visualAbstraction = source["visualAbstraction"];
+	        this.informationDensity = source["informationDensity"];
+	        this.narrativeDepth = source["narrativeDepth"];
+	        this.trustPriority = source["trustPriority"];
+	        this.motionEnergy = source["motionEnergy"];
+	        this.symmetry = source["symmetry"];
+	    }
 	}
 	export class Scorecard {
 	    originality: number;
@@ -202,6 +340,7 @@ export namespace main {
 	    description: string;
 	    decisions: Decision[];
 	    scores: Scorecard;
+	    controls: DesignControls;
 	    blueprint: PageBlueprint;
 	
 	    static createFrom(source: any = {}) {
@@ -239,6 +378,7 @@ export namespace main {
 	        this.description = source["description"];
 	        this.decisions = this.convertValues(source["decisions"], Decision);
 	        this.scores = this.convertValues(source["scores"], Scorecard);
+	        this.controls = this.convertValues(source["controls"], DesignControls);
 	        this.blueprint = this.convertValues(source["blueprint"], PageBlueprint);
 	    }
 	
@@ -346,6 +486,12 @@ export namespace main {
 		    return a;
 		}
 	}
+	
+	
+	
+	
+	
+	
 	
 	
 	

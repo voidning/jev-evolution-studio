@@ -16,25 +16,32 @@ import (
 
 func AskJev(prompt string, current []PageSpec) (Answers, error) {
 	questions := map[string]any{
-		"world":      choice("Choose the semantic product world that should drive the site's brand, copy, evidence, and imagery", map[string]string{"ai_data": "AI, analytics, software, or live data", "quantum": "Quantum computing or advanced physics", "ocean": "Ocean, marine science, diving, or deep-sea exploration", "space": "Space, astronomy, satellites, or aerospace", "biotech": "Biology, healthcare, or life science", "creative": "Creative tools, media, culture, or design"}),
-		"archetype":  choice("Choose the product archetype that best matches the requested website", map[string]string{"developer": "Developer infrastructure or technical tool", "enterprise": "Trust-oriented B2B or enterprise system", "data_product": "Data, intelligence, analytics, or live operations product"}),
-		"goal":       choice("Choose the primary job this website must perform", map[string]string{"explore": "Help visitors understand and explore", "convert": "Drive a signup, purchase, or application", "trust": "Establish authority and reduce perceived risk"}),
-		"tone":       choice("Choose the visual voice that best expresses the request", map[string]string{"technical": "Precise restrained technical minimalism", "bold": "Futuristic high-impact visual confidence", "editorial": "Warm spacious editorial sophistication"}),
-		"theme":      choice("Choose the most fitting accent color family", map[string]string{"violet": "Electric violet for intelligence and depth", "mint": "Signal green for speed and live systems", "ember": "Warm orange for a human editorial feel"}),
-		"hero":       choice("Choose the best hero composition", map[string]string{"split": "Copy paired with a live product artifact", "centered": "A cinematic centered statement", "terminal": "A developer terminal is the main proof"}),
-		"visual":     choice("Choose the primary product visual", map[string]string{"dashboard": "Live operational dashboard", "terminal": "Executable code terminal", "abstract": "Generative signal field or system map"}),
-		"features":   choice("Choose the best feature narrative", map[string]string{"bento": "Asymmetric capability system", "columns": "Calm editorial sequence", "timeline": "Continuous event flow"}),
-		"density":    choice("Choose the correct information density", map[string]string{"airy": "Cinematic focus and large pauses", "balanced": "Balanced proof and breathing room", "compact": "Dense fast operational detail"}),
-		"navigation": choice("Choose the navigation behavior", map[string]string{"minimal": "Very few destinations and strong focus", "exploratory": "Multiple pathways for product exploration", "action": "Navigation organized around one conversion action"}),
-		"motion":     choice("Choose the motion system", map[string]string{"still": "Mostly static and calm", "fluid": "Continuous subtle morphing", "kinetic": "Energetic staged transformations"}),
-		"story":      choice("Choose the page storytelling order", map[string]string{"proof_first": "Lead with evidence and product reality", "vision_first": "Lead with a bold future-facing idea", "problem_first": "Lead with the user's pain then resolve it"}),
-		"cta":        choice("Choose the primary call to action", map[string]string{"demo": "See or book a product demonstration", "trial": "Start using the product now", "waitlist": "Apply for early access"}),
-		"contrast":   score("Rate how dramatic the visual contrast should be", []string{"Very quiet", "Restrained", "Noticeable", "Dramatic", "Extreme"}),
-		"novelty":    score("Rate how far the design should depart from conventional SaaS patterns", []string{"Conventional", "Familiar", "Distinctive", "Experimental", "Unprecedented"}),
-		"pricing":    noul("The requested page should contain a pricing section"),
-		"logos":      noul("The requested page should show a customer or partner trust strip"),
-		"stats":      noul("The requested page should show quantitative product evidence"),
-		"testimony":  noul("The requested page should contain customer testimony or human proof"),
+		"world":               choice("Choose the semantic product world that should drive the site's brand, copy, evidence, and imagery", map[string]string{"ai_data": "AI, analytics, software, or live data", "quantum": "Quantum computing or advanced physics", "ocean": "Ocean, marine science, diving, or deep-sea exploration", "space": "Space, astronomy, satellites, or aerospace", "biotech": "Biology, healthcare, or life science", "creative": "Creative tools, media, culture, or design"}),
+		"archetype":           choice("Choose the product archetype that best matches the requested website", map[string]string{"developer": "Developer infrastructure or technical tool", "enterprise": "Trust-oriented B2B or enterprise system", "data_product": "Data, intelligence, analytics, or live operations product"}),
+		"goal":                choice("Choose the primary job this website must perform", map[string]string{"explore": "Help visitors understand and explore", "convert": "Drive a signup, purchase, or application", "trust": "Establish authority and reduce perceived risk"}),
+		"tone":                choice("Choose the visual voice that best expresses the request", map[string]string{"technical": "Precise restrained technical minimalism", "bold": "Futuristic high-impact visual confidence", "editorial": "Warm spacious editorial sophistication"}),
+		"theme":               choice("Choose the most fitting accent color family", map[string]string{"violet": "Electric violet for intelligence and depth", "mint": "Signal green for speed and live systems", "ember": "Warm orange for a human editorial feel"}),
+		"hero":                choice("Choose the best hero composition", map[string]string{"split": "Copy paired with a live product artifact", "centered": "A cinematic centered statement", "terminal": "A developer terminal is the main proof"}),
+		"visual":              choice("Choose the primary product visual", map[string]string{"dashboard": "Live operational dashboard", "terminal": "Executable code terminal", "abstract": "Generative signal field or system map"}),
+		"features":            choice("Choose the best feature narrative", map[string]string{"bento": "Asymmetric capability system", "columns": "Calm editorial sequence", "timeline": "Continuous event flow"}),
+		"density":             choice("Choose the correct information density", map[string]string{"airy": "Cinematic focus and large pauses", "balanced": "Balanced proof and breathing room", "compact": "Dense fast operational detail"}),
+		"navigation":          choice("Choose the navigation behavior", map[string]string{"minimal": "Very few destinations and strong focus", "exploratory": "Multiple pathways for product exploration", "action": "Navigation organized around one conversion action"}),
+		"motion":              choice("Choose the motion system", map[string]string{"still": "Mostly static and calm", "fluid": "Continuous subtle morphing", "kinetic": "Energetic staged transformations"}),
+		"story":               choice("Choose the page storytelling order", map[string]string{"proof_first": "Lead with evidence and product reality", "vision_first": "Lead with a bold future-facing idea", "problem_first": "Lead with the user's pain then resolve it"}),
+		"cta":                 choice("Choose the primary call to action", map[string]string{"demo": "See or book a product demonstration", "trial": "Start using the product now", "waitlist": "Apply for early access"}),
+		"contrast":            score("Rate how dramatic the visual contrast should be", []string{"Very quiet", "Restrained", "Noticeable", "Dramatic", "Extreme"}),
+		"novelty":             score("Rate how far the design should depart from conventional SaaS patterns", []string{"Conventional", "Familiar", "Distinctive", "Experimental", "Unprecedented"}),
+		"spatial_tension":     score("Rate the desired spatial tension between ordered and deliberately off-axis composition", qualityLevels("ordered", "high-tension")),
+		"visual_abstraction":  score("Rate whether the visual language should be literal or abstract", qualityLevels("literal", "abstract")),
+		"information_density": score("Rate the desired amount of information visible at once", qualityLevels("sparse", "dense")),
+		"narrative_depth":     score("Rate how strongly the page should unfold as a journey", qualityLevels("direct", "deeply narrative")),
+		"trust_priority":      score("Rate how strongly evidence and credibility should shape the composition", qualityLevels("expressive", "evidence-led")),
+		"motion_energy":       score("Rate the desired energy of the motion system", qualityLevels("still", "kinetic")),
+		"symmetry":            score("Rate whether the composition should be asymmetric or symmetrical", qualityLevels("asymmetric", "symmetrical")),
+		"pricing":             noul("The requested page should contain a pricing section"),
+		"logos":               noul("The requested page should show a customer or partner trust strip"),
+		"stats":               noul("The requested page should show quantitative product evidence"),
+		"testimony":           noul("The requested page should contain customer testimony or human proof"),
 	}
 	state := map[string]any{"request": prompt, "current_page": current, "instruction": "Interpret this as a UI design or edit request. Preserve prior choices unless the request asks to change them."}
 	return askSystemOne(state, questions)
@@ -135,7 +142,14 @@ func LocalAnswers(prompt string) Answers {
 		"story":      {Choice: ternary(bold, "vision_first", "proof_first"), Confidence: .81, Probabilities: dist("proof_first", "vision_first", "problem_first")},
 		"cta":        {Choice: ternary(has("内测", "waitlist"), "waitlist", ternary(has("试用", "购买"), "trial", "demo")), Confidence: .86, Probabilities: dist("demo", "trial", "waitlist")},
 		"contrast":   {Score: ternaryFloat(bold, 3.7, 2.3), Confidence: .78}, "novelty": {Score: ternaryFloat(bold, 3.6, 2.4), Confidence: .8},
-		"pricing": {Noul: pricing}, "logos": {Noul: ternaryFloat(has("logo", "客户", "信任", "企业"), .88, .68)}, "stats": {Noul: ternaryFloat(has("数据", "实时", "速度", "分析", "指标"), .93, .61)}, "testimony": {Noul: ternaryFloat(has("客户", "案例", "证言"), .86, .34)},
+		"spatial_tension":     {Score: ternaryFloat(bold, 3.8, ternaryFloat(airy, 1.7, 2.6)), Confidence: .82},
+		"visual_abstraction":  {Score: ternaryFloat(bold, 3.7, 2.1), Confidence: .8},
+		"information_density": {Score: ternaryFloat(compact, 3.8, ternaryFloat(airy, 1.2, 2.5)), Confidence: .84},
+		"narrative_depth":     {Score: ternaryFloat(has("故事", "旅程", "沉浸", "cinematic"), 3.8, 2.5), Confidence: .78},
+		"trust_priority":      {Score: ternaryFloat(has("可信", "科研", "证据", "企业", "trust"), 3.9, 2.4), Confidence: .86},
+		"motion_energy":       {Score: ternaryFloat(bold, 3.8, ternaryFloat(airy, 1.3, 2.4)), Confidence: .81},
+		"symmetry":            {Score: ternaryFloat(airy, 3.3, ternaryFloat(bold, 1.2, 2.4)), Confidence: .76},
+		"pricing":             {Noul: pricing}, "logos": {Noul: ternaryFloat(has("logo", "客户", "信任", "企业"), .88, .68)}, "stats": {Noul: ternaryFloat(has("数据", "实时", "速度", "分析", "指标"), .93, .61)}, "testimony": {Noul: ternaryFloat(has("客户", "案例", "证言"), .86, .34)},
 	}
 }
 
@@ -191,7 +205,43 @@ func makeSpec(id, name, descriptor, strategy string, answers Answers, overrides 
 		decision("Visual tone", humanLabel(tone), "Visual", "tone", .9), decision("Accent", humanLabel(theme), "Visual", "theme", .88), decision("Density", humanLabel(density), "Visual", "density", .78), decision("Motion", humanLabel(motion), "Visual", "motion", .82),
 		{Label: "Contrast", Value: scoreLabel(answers["contrast"].Score), Group: "Signals", Confidence: conf(answers["contrast"], .78)}, {Label: "Novelty", Value: scoreLabel(answers["novelty"].Score), Group: "Signals", Confidence: conf(answers["novelty"], .8)}, {Label: "Pricing", Value: yesNo(pricing), Group: "Signals", Confidence: math.Abs(answers["pricing"].Noul-.5) * 2}, {Label: "Proof", Value: yesNo(stats || logos), Group: "Signals", Confidence: .84},
 	}
-	return PageSpec{ID: id, Name: name, Descriptor: descriptor, Strategy: strategy, Generation: 1, Theme: theme, Hero: hero, Visual: visual, Features: features, Density: density, Navigation: navigation, Motion: motion, Story: story, CTA: cta, World: world, Brand: content.Brand, Eyebrow: content.Eyebrow, SectionLabel: content.SectionLabel, SectionTitle: content.SectionTitle, FeaturesContent: content.Features, Metrics: content.Metrics, ShowLogos: logos, ShowPricing: pricing, ShowStats: stats, Title: titles[strategy], Description: descriptions[strategy], Decisions: decisions}
+	controls := DesignControls{
+		SpatialTension: controlValue(answers["spatial_tension"], .55), VisualAbstraction: controlValue(answers["visual_abstraction"], .55),
+		InformationDensity: controlValue(answers["information_density"], .55), NarrativeDepth: controlValue(answers["narrative_depth"], .55),
+		TrustPriority: controlValue(answers["trust_priority"], .55), MotionEnergy: controlValue(answers["motion_energy"], .55), Symmetry: controlValue(answers["symmetry"], .5),
+	}
+	// The three universes are continuous lenses, not fixed page skeletons.
+	if strategy == "clarity" {
+		controls.SpatialTension *= .72
+		controls.Symmetry = clamp01(controls.Symmetry + .16)
+	}
+	if strategy == "impact" {
+		controls.SpatialTension = clamp01(controls.SpatialTension + .22)
+		controls.VisualAbstraction = clamp01(controls.VisualAbstraction + .2)
+		controls.MotionEnergy = clamp01(controls.MotionEnergy + .2)
+	}
+	if strategy == "trust" {
+		controls.TrustPriority = clamp01(controls.TrustPriority + .24)
+		controls.MotionEnergy *= .72
+	}
+	return PageSpec{ID: id, Name: name, Descriptor: descriptor, Strategy: strategy, Generation: 1, Theme: theme, Hero: hero, Visual: visual, Features: features, Density: density, Navigation: navigation, Motion: motion, Story: story, CTA: cta, World: world, Brand: content.Brand, Eyebrow: content.Eyebrow, SectionLabel: content.SectionLabel, SectionTitle: content.SectionTitle, FeaturesContent: content.Features, Metrics: content.Metrics, ShowLogos: logos, ShowPricing: pricing, ShowStats: stats, Title: titles[strategy], Description: descriptions[strategy], Decisions: decisions, Controls: controls}
+}
+
+func controlValue(answer Answer, fallback float64) float64 {
+	if answer.Score == 0 {
+		return fallback
+	}
+	return clamp01(answer.Score / 4)
+}
+
+func clamp01(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
 }
 
 type pageContent struct {

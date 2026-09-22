@@ -4,7 +4,7 @@ import { Evolve, Generate, GetState, OpenStage, SelectConcept } from "../wailsjs
 
 type Decision = { label: string; value: string; confidence: number; group: string; distribution?: Record<string, number> };
 type Scorecard = { originality: number; clarity: number; trust: number; conversion: number; composite: number };
-type Blueprint = { version: number; id: string; creativeDirection: string; sections: unknown[] };
+type Blueprint = { version: number; id: string; creativeDirection: string; root: unknown };
 type PageSpec = { id: string; name: string; descriptor: string; strategy: string; generation: number; mutation: string; theme: string; hero: string; visual: string; features: string; density: string; navigation: string; motion: string; story: string; cta: string; world: string; brand: string; eyebrow: string; showLogos: boolean; showPricing: boolean; showStats: boolean; title: string; description: string; decisions: Decision[]; scores: Scorecard; blueprint: Blueprint };
 type DesignResult = { mode: string; latencyMs: number; prompt: string; generation: number; winner: number; swarmSize: number; mutationLog: string[]; specs: PageSpec[]; generator: string; astSource: string; candidateCount: number; designSpace: string };
 
