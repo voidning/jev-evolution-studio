@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed all:frontend/dist
@@ -45,7 +46,7 @@ func main() {
 		<-ch
 		return
 	}
-	err := wails.Run(&options.App{Title: "Jev — 网页编辑器", Width: 920, Height: 900, MinWidth: 390, MinHeight: 600, AssetServer: &assetserver.Options{Assets: assets}, BackgroundColour: &options.RGBA{R: 245, G: 247, B: 248, A: 1}, OnStartup: a.startup, OnShutdown: a.shutdown, Bind: []interface{}{a}})
+	err := wails.Run(&options.App{Title: "Jev — 网页编辑器", Width: 920, Height: 900, MinWidth: 390, MinHeight: 600, AssetServer: &assetserver.Options{Assets: assets}, BackgroundColour: &options.RGBA{R: 17, G: 22, B: 25, A: 1}, Mac: &mac.Options{Appearance: mac.NSAppearanceNameDarkAqua}, OnStartup: a.startup, OnShutdown: a.shutdown, Bind: []interface{}{a}})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}

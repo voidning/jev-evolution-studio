@@ -1,81 +1,87 @@
 @import "tailwindcss";
 @theme {
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-  --color-ink: #19313a;
-  --color-brand: #17586a;
-  --color-muted: #536b78;
+  --color-ink: #e1eaed;
+  --color-brand: #8fd5c1;
+  --color-muted: #a6b6c0;
+  --color-canvas: #111619;
+  --color-surface: #1a2227;
+  --color-raised: #253139;
+  --color-line: #3c4d56;
+  --color-on-brand: #092c26;
 }
 @layer base {
- :root { @apply font-sans text-[13px] text-ink bg-[#f4f6f7] [font-synthesis:none]; }
+ :root { @apply font-sans text-[13px] text-ink bg-canvas [font-synthesis:none] [color-scheme:dark]; }
  body { @apply m-0; }
  button,input,textarea { @apply font-[inherit]; }
- button { @apply cursor-pointer rounded-md border border-[#c8d3d9] bg-white px-3 py-[9px] text-[#284650] leading-[1.4] min-h-9; }
- button:hover:not(:disabled) { @apply bg-[#eef4f5] border-[#83a1ab]; }
- button:disabled { @apply opacity-[.48] cursor-not-allowed; }
- :focus-visible { @apply outline-3 outline-[#63a7b7] outline-offset-3; }
- textarea { @apply w-full min-h-28 resize-y rounded-md border border-[#c9d6dd] bg-[#fafcfd] p-3 leading-[1.7] text-[#274653]; }
+ button { @apply cursor-pointer rounded-md border border-line bg-surface px-3 py-[9px] text-ink leading-[1.4] min-h-9; }
+ button:hover:not(:disabled) { @apply bg-raised border-[#79929c]; }
+ button:disabled { @apply cursor-not-allowed; }
+ :focus-visible { @apply outline-3 outline-brand outline-offset-3; }
+ textarea { @apply w-full min-h-28 resize-y rounded-md border border-line bg-canvas p-3 leading-[1.7] text-ink; }
  input::placeholder,textarea::placeholder { @apply text-muted opacity-100; }
 }
 @layer components {
- .primary { @apply bg-brand border-brand text-white; }
- .primary:hover:not(:disabled) { @apply bg-[#104b5b] text-white; }
+ .primary { @apply bg-brand border-brand text-on-brand; }
+ .primary:hover:not(:disabled) { @apply bg-[#ade6d5] text-on-brand; }
+ .editor button:disabled { @apply opacity-100 bg-raised border-line text-muted; }
  .editor { @apply max-w-[1400px] mx-auto px-[30px] py-7; }
  .app-header { @apply flex items-center justify-between gap-4 mb-6; }
  .wordmark { @apply m-0 flex items-center gap-2.5 text-[26px] font-[750] tracking-[-1px]; }
- .logo { @apply flex items-center justify-center size-[34px] bg-brand rounded-lg text-white text-[27px]; }
+ .logo { @apply flex items-center justify-center size-[34px] bg-brand rounded-lg text-on-brand text-[27px]; }
  .product { @apply text-sm tracking-normal font-medium pl-1; }
  .app-header p { @apply mt-2.5 text-xs text-muted; }
- .mode { @apply text-[10px] tracking-[1px] border border-[#c7d9de] px-[9px] py-[7px] bg-[#eaf2f4] rounded text-[#336371]; }
- .panel { @apply min-w-0 rounded-[9px] border border-[#d9e1e5] bg-white p-[18px]; }
+ .mode { @apply text-[10px] tracking-[1px] border border-line px-[9px] py-[7px] bg-raised rounded text-[#aed7dc]; }
+ .panel { @apply min-w-0 rounded-[9px] border border-line bg-surface p-[18px]; }
  .section-title { @apply flex items-center justify-between gap-3 mb-3.5; }
- .section-title h2 { @apply text-xs font-semibold m-0 text-[#577783] tracking-[.5px]; }
- .section-title h2 span { @apply ml-2 text-[#223e49]; }
+ .section-title h2 { @apply text-xs font-semibold m-0 text-muted tracking-[.5px]; }
+ .section-title h2 span { @apply ml-2 text-ink; }
  .connection,.hint { @apply text-[11px] text-muted; }
- .live { @apply text-[#236d5b]; }
- .project-path { @apply font-mono [overflow-wrap:anywhere] text-xs mb-3 text-[#455e69]; }
+ .live { @apply text-[#90d8bc]; }
+ .project-path { @apply font-mono [overflow-wrap:anywhere] text-xs mb-3 text-muted; }
  .input-row { @apply flex gap-2 flex-wrap; }
- .input-row input { @apply flex-1 min-w-[120px] w-full border border-[#cfdae0] rounded-md px-2.5 py-[9px] text-[#243e49] bg-[#fafcfc]; }
+ .input-row input { @apply flex-1 min-w-[120px] w-full border border-line rounded-md px-2.5 py-[9px] text-ink bg-canvas; }
  .project-actions { @apply flex items-center justify-between gap-3 mt-3; }
- .check { @apply flex items-center gap-1.5 text-xs text-[#5f7681]; }
+ .check { @apply flex items-center gap-1.5 text-xs text-muted; }
  .check input { @apply accent-brand; }
- details>summary { @apply cursor-pointer text-xs text-[#617985] leading-[1.6]; }
+ details>summary { @apply cursor-pointer text-xs text-muted leading-[1.6]; }
  details .input-row,.project details { @apply mt-3; }
  .workspace { @apply grid grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] gap-4 mt-4; }
  .edit-column { @apply flex flex-col gap-4 min-w-0; }
  .small { @apply text-[11px] px-[9px] py-1.5; }
- .active { @apply bg-[#eaf5f4] border-[#8bb6b4] text-[#236760]; }
+ .active { @apply bg-[#223e39] border-[#537f73] text-[#b1e6d6]; }
  .selection { @apply flex flex-col gap-2; }
- .selection strong { @apply text-[19px] text-[#1d5768]; }
+ .selection strong { @apply text-[19px] text-[#b0e0d6]; }
  .selection code { @apply [overflow-wrap:anywhere] text-xs; }
  .selection>span { @apply text-[11px] text-muted; }
  .style-summary { @apply flex gap-[7px] flex-wrap mt-1.5; }
- .style-summary span { @apply px-[7px] py-[5px] bg-[#f2f5f6] text-[10px] rounded text-muted; }
- .style-summary b { @apply font-medium text-[#304d58] ml-1; }
- .empty { @apply text-[#5f7782] text-[13px] leading-[1.8] py-3; }
+ .style-summary span { @apply px-[7px] py-[5px] bg-raised text-[10px] rounded text-muted; }
+ .style-summary b { @apply font-medium text-ink ml-1; }
+ .empty { @apply text-muted text-[13px] leading-[1.8] py-3; }
  .empty small { @apply block mt-[7px] text-muted text-[11px]; }
  .command-examples { @apply flex flex-wrap gap-1.5 mt-2.5; }
- .command-examples button { @apply text-[10px] border border-[#e2e8eb] min-h-[30px] px-2 py-[5px] text-[#5a727e] text-left; }
+ .command-examples button { @apply text-[10px] border border-line min-h-[30px] px-2 py-[5px] text-muted text-left; }
  .apply-row { @apply flex items-center justify-between gap-3 mt-4; }
  .apply-row>span { @apply text-[10px] text-muted; }
  .error,.notice { @apply px-3 py-2.5 rounded-[5px] text-xs leading-[1.65] [overflow-wrap:anywhere] mt-3.5; }
- .error { @apply text-[#9b3232] bg-[#fff0ed] border border-[#eec5bd]; }
- .notice { @apply text-[#226b60] bg-[#eff8f4] border border-[#cce5da]; }
+ .error { @apply text-[#ffb8ae] bg-[#3a2528] border border-[#765055]; }
+ .notice { @apply text-[#b1e6d6] bg-[#223e39] border border-[#537f73]; }
  .stages { @apply list-none p-0 mt-3; }
  .stages:empty { @apply hidden; }
- .stages li { @apply flex justify-between gap-2.5 py-[5px] text-[11px] text-[#3d707a]; }
+ .stages li { @apply flex justify-between gap-2.5 py-[5px] text-[11px] text-[#add7d9]; }
  .stages small { @apply text-muted text-[10px]; }
- .intent summary { @apply flex justify-between text-[#4d6b79]; }
+ .intent summary { @apply flex justify-between text-muted; }
  .intent summary span { @apply text-[10px]; }
  .intent pre { @apply text-[11px] max-h-[270px] overflow-auto leading-[1.7]; }
  .diff-panel { @apply flex flex-col min-h-[430px]; }
- .file-label { @apply font-mono text-[11px] text-muted border-b border-[#e2e8ec] pb-3 [overflow-wrap:anywhere]; }
+ .file-label { @apply font-mono text-[11px] text-muted border-b border-line pb-3 [overflow-wrap:anywhere]; }
  .diff { @apply font-mono text-[11px] leading-[1.75] overflow-auto flex-1 min-h-[250px] max-h-[650px] my-3 mx-[-7px] px-[7px] [tab-size:2]; }
  .diff>div { @apply min-w-max; }
- .addition { @apply text-[#1e6b4c] bg-[#edf8f0]; }
- .deletion { @apply text-[#ac4a45] bg-[#fff2f0]; }
+ .addition { @apply text-[#b1e7c6] bg-[#203a2d]; }
+ .deletion { @apply text-[#ffc0b7] bg-[#412a2d]; }
  .context { @apply text-muted; }
  .diff-empty { @apply block text-muted font-sans text-xs leading-[1.9] whitespace-normal pt-5; }
- .diff-actions { @apply flex gap-2 justify-end pt-3.5 border-t border-[#e2e8ec]; }
+ .diff-actions { @apply flex gap-2 justify-end pt-3.5 border-t border-line; }
  footer { @apply flex justify-between gap-[15px] flex-wrap pt-[22px] pb-1 text-[10px] text-muted; }
 }
 @media(max-width:760px){.editor{@apply px-4 py-5}.workspace{@apply grid-cols-[minmax(0,1fr)]}.panel{@apply p-4}.mode{@apply text-[9px]}.diff-panel{@apply min-h-[330px]}.diff{@apply max-h-[420px] min-h-[180px]}}
